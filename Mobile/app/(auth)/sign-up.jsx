@@ -108,7 +108,7 @@ export default function SignUpScreen() {
         enableAutomaticScroll={true}
     >
         <View style={styles.container}>
-        <Image source={require("../../assets/images/revenue-i2.png")} style={styles.illustration} />
+        <Image source={require("../../assets/images/VSR.png")} style={styles.illustration} />
 
         <Text style={styles.title}>Create Account</Text>
 

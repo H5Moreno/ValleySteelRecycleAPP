@@ -2,10 +2,10 @@
 
 import { useCallback, useState } from "react";
 import { Alert } from "react-native";
-//import { API_URL } from "../constants/api";
+import { API_URL } from "../constants/api";
 
-// const API_URL = "https://wallet-api-cxqp.onrender.com/api";
-const API_URL = "http://localhost:5001/api";
+//const API_URL = "https://valleysteelapp-api.onrender.com/api";
+//const API_URL = "http://localhost:5001/api";
 
 export const useTransactions = (userId) => {
   const [transactions, setTransactions] = useState([]);
