@@ -39,7 +39,7 @@ export default function SignUpScreen() {
       if (err.errors?.[0]?.code === "form_identifier_exists") {
         setError("Email address already exists. Please try another one.")
       } else {
-        setError("An error occurred. Please try again.")
+        setError("Passwords must be at least 8 characters long")
       }
     }
   };
@@ -108,7 +108,10 @@ export default function SignUpScreen() {
         enableAutomaticScroll={true}
     >
         <View style={styles.container}>
-        <Image source={require("../../assets/images/revenue-i2.png")} style={styles.illustration} />
+        <Image 
+          source={require("../../assets/images/VSR.png")} 
+          style={[styles.illustration, { alignSelf: "center" }]} 
+        />
 
         <Text style={styles.title}>Create Account</Text>
 
