@@ -11,6 +11,13 @@ export const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 0,
   },
+  transactionsList: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  transactionsListContent: {
+    paddingBottom: 20,
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -92,6 +99,19 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 3,
+  },
+  addTransactionButton: {
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+    paddingVertical: 10,
+  },
+  addTransactionButtonText: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: COLORS.primary,
+    marginTop: 8,
   },
   balanceTitle: {
     fontSize: 16,
@@ -260,5 +280,10 @@ export const styles = StyleSheet.create({
   },
   transactionsListContent: {
     paddingBottom: 20,
+  },
+  viewButton: {
+    padding: 15,
+    borderLeftWidth: 1,
+    borderLeftColor: COLORS.border,
   },
 });

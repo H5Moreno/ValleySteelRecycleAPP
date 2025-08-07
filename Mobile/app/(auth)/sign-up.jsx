@@ -39,7 +39,7 @@ export default function SignUpScreen() {
       if (err.errors?.[0]?.code === "form_identifier_exists") {
         setError("Email address already exists. Please try another one.")
       } else {
-        setError("An error occurred. Please try again.")
+        setError("Passwords must be at least 8 characters long")
       }
     }
   };
