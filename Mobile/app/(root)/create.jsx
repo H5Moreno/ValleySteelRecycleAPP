@@ -1,81 +1,96 @@
-import {
-  View,
-  Text,
-  Alert,
-  TouchableOpacity,
-  TextInput,
-  ActivityIndicatorBase,
-  ActivityIndicator,
-} from "react-native";
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from "react-native";
+import { useState } from "react";
 import { useRouter } from "expo-router";
 import { useUser } from "@clerk/clerk-expo";
-import { useState } from "react";
-import { API_URL } from "../../constants/api";
+import { Ionicons } from "@expo/vector-icons";
 import { styles } from "../../assets/styles/create.styles";
 import { COLORS } from "../../constants/colors";
-import { Ionicons } from "@expo/vector-icons";
+import { API_URL } from "../../constants/api";
+import { DEFECTIVE_ITEMS, TRUCK_TRAILER_ITEMS } from "../../constants/inspectionItems";
 
-const CATEGORIES = [
-  { id: "food", name: "Food & Drinks", icon: "fast-food" },
-  { id: "shopping", name: "Shopping", icon: "cart" },
-  { id: "transportation", name: "Transportation", icon: "car" },
-  { id: "entertainment", name: "Entertainment", icon: "film" },
-  { id: "bills", name: "Bills", icon: "receipt" },
-  { id: "income", name: "Income", icon: "cash" },
-  { id: "other", name: "Other", icon: "ellipsis-horizontal" },
-];
-
-const CreateScreen = () => {
+const CreateInspectionScreen = () => {
   const router = useRouter();
   const { user } = useUser();
-
-  const [title, setTitle] = useState("");
-  const [amount, setAmount] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [isExpense, setIsExpense] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Form state
+  const [location, setLocation] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [time, setTime] = useState("");
+  const [vehicle, setVehicle] = useState("");
+  const [speedometerReading, setSpeedometerReading] = useState("");
+  const [trailerNumber, setTrailerNumber] = useState("");
+  const [remarks, setRemarks] = useState("");
+  const [conditionSatisfactory, setConditionSatisfactory] = useState(true);
+  const [defectsCorrected, setDefectsCorrected] = useState(false);
+  const [defectsNeedCorrection, setDefectsNeedCorrection] = useState(false);
+  const [driverSignature, setDriverSignature] = useState("");
+  const [mechanicSignature, setMechanicSignature] = useState("");
+
+  // Defective items state
+  const [selectedDefectiveItems, setSelectedDefectiveItems] = useState({});
+  const [selectedTruckTrailerItems, setSelectedTruckTrailerItems] = useState({});
+
+  const toggleDefectiveItem = (itemId) => {
+    setSelectedDefectiveItems(prev => ({
+      ...prev,
+      [itemId]: !prev[itemId]
+    }));
+  };
+
+  const toggleTruckTrailerItem = (itemId) => {
+    setSelectedTruckTrailerItems(prev => ({
+      ...prev,
+      [itemId]: !prev[itemId]
+    }));
+  };
+
   const handleCreate = async () => {
-    // validations
-    if (!title.trim()) return Alert.alert("Error", "Please enter a transaction title");
-    if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
-      Alert.alert("Error", "Please enter a valid amount");
-      return;
-    }
-
-    if (!selectedCategory) return Alert.alert("Error", "Please select a category");
-
-    setIsLoading(true);
     try {
-      // Format the amount (negative for expenses, positive for income)
-      const formattedAmount = isExpense
-        ? -Math.abs(parseFloat(amount))
-        : Math.abs(parseFloat(amount));
+      setIsLoading(true);
 
-      const response = await fetch(`${API_URL}/transactions`, {
+      if (!vehicle.trim()) {
+        Alert.alert("Error", "Please enter a vehicle identifier");
+        return;
+      }
+
+      const inspectionData = {
+        user_id: user.id,
+        location: location.trim(),
+        date,
+        time: time.trim(),
+        vehicle: vehicle.trim(),
+        speedometer_reading: speedometerReading.trim(),
+        defective_items: selectedDefectiveItems,
+        truck_trailer_items: selectedTruckTrailerItems,
+        trailer_number: trailerNumber.trim(),
+        remarks: remarks.trim(),
+        condition_satisfactory: conditionSatisfactory,
+        driver_signature: driverSignature.trim(),
+        defects_corrected: defectsCorrected,
+        defects_need_correction: defectsNeedCorrection,
+        mechanic_signature: mechanicSignature.trim()
+      };
+
+      const response = await fetch(`${API_URL}/inspections`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          user_id: user.id,
-          title,
-          amount: formattedAmount,
-          category: selectedCategory,
-        }),
+        body: JSON.stringify(inspectionData),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
         console.log(errorData);
-        throw new Error(errorData.error || "Failed to create transaction");
+        throw new Error(errorData.error || "Failed to create inspection");
       }
 
-      Alert.alert("Success", "Transaction created successfully");
+      Alert.alert("Success", "Vehicle inspection created successfully");
       router.back();
     } catch (error) {
-      Alert.alert("Error", error.message || "Failed to create transaction");
-      console.error("Error creating transaction:", error);
+      Alert.alert("Error", error.message || "Failed to create inspection");
+      console.error("Error creating inspection:", error);
     } finally {
       setIsLoading(false);
     }
@@ -88,7 +103,7 @@ const CreateScreen = () => {
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={COLORS.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>New Transaction</Text>
+        <Text style={styles.headerTitle}>Vehicle Inspection</Text>
         <TouchableOpacity
           style={[styles.saveButtonContainer, isLoading && styles.saveButtonDisabled]}
           onPress={handleCreate}
@@ -99,104 +114,244 @@ const CreateScreen = () => {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.card}>
-        <View style={styles.typeSelector}>
-          {/* EXPENSE SELECTOR */}
-          <TouchableOpacity
-            style={[styles.typeButton, isExpense && styles.typeButtonActive]}
-            onPress={() => setIsExpense(true)}
-          >
-            <Ionicons
-              name="arrow-down-circle"
-              size={22}
-              color={isExpense ? COLORS.white : COLORS.expense}
-              style={styles.typeIcon}
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <View style={styles.card}>
+          {/* BASIC INFO */}
+          <Text style={styles.sectionTitle}>
+            <Ionicons name="information-circle-outline" size={16} color={COLORS.text} /> Basic Information
+          </Text>
+
+          <View style={styles.inputContainer}>
+            <Ionicons name="location-outline" size={22} color={COLORS.textLight} style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Location"
+              placeholderTextColor={COLORS.textLight}
+              value={location}
+              onChangeText={setLocation}
             />
-            <Text style={[styles.typeButtonText, isExpense && styles.typeButtonTextActive]}>
-              Expense
-            </Text>
-          </TouchableOpacity>
+          </View>
 
-          {/* INCOME SELECTOR */}
-          <TouchableOpacity
-            style={[styles.typeButton, !isExpense && styles.typeButtonActive]}
-            onPress={() => setIsExpense(false)}
-          >
-            <Ionicons
-              name="arrow-up-circle"
-              size={22}
-              color={!isExpense ? COLORS.white : COLORS.income}
-              style={styles.typeIcon}
-            />
-            <Text style={[styles.typeButtonText, !isExpense && styles.typeButtonTextActive]}>
-              Income
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* AMOUNT CONTAINER */}
-        <View style={styles.amountContainer}>
-          <Text style={styles.currencySymbol}>$</Text>
-          <TextInput
-            style={styles.amountInput}
-            placeholder="0.00"
-            placeholderTextColor={COLORS.textLight}
-            value={amount}
-            onChangeText={setAmount}
-            keyboardType="numeric"
-          />
-        </View>
-
-        {/* INPUT CONTAINER */}
-        <View style={styles.inputContainer}>
-          <Ionicons
-            name="create-outline"
-            size={22}
-            color={COLORS.textLight}
-            style={styles.inputIcon}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Transaction Title"
-            placeholderTextColor={COLORS.textLight}
-            value={title}
-            onChangeText={setTitle}
-          />
-        </View>
-
-        {/* TITLE */}
-        <Text style={styles.sectionTitle}>
-          <Ionicons name="pricetag-outline" size={16} color={COLORS.text} /> Category
-        </Text>
-
-        <View style={styles.categoryGrid}>
-          {CATEGORIES.map((category) => (
-            <TouchableOpacity
-              key={category.id}
-              style={[
-                styles.categoryButton,
-                selectedCategory === category.name && styles.categoryButtonActive,
-              ]}
-              onPress={() => setSelectedCategory(category.name)}
-            >
-              <Ionicons
-                name={category.icon}
-                size={20}
-                color={selectedCategory === category.name ? COLORS.white : COLORS.text}
-                style={styles.categoryIcon}
+          <View style={styles.rowContainer}>
+            <View style={[styles.inputContainer, { flex: 1, marginRight: 10 }]}>
+              <Ionicons name="calendar-outline" size={22} color={COLORS.textLight} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Date (YYYY-MM-DD)"
+                placeholderTextColor={COLORS.textLight}
+                value={date}
+                onChangeText={setDate}
               />
-              <Text
+            </View>
+            <View style={[styles.inputContainer, { flex: 1, marginLeft: 10 }]}>
+              <Ionicons name="time-outline" size={22} color={COLORS.textLight} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Time"
+                placeholderTextColor={COLORS.textLight}
+                value={time}
+                onChangeText={setTime}
+              />
+            </View>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Ionicons name="car-outline" size={22} color={COLORS.textLight} style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Vehicle *"
+              placeholderTextColor={COLORS.textLight}
+              value={vehicle}
+              onChangeText={setVehicle}
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Ionicons name="speedometer-outline" size={22} color={COLORS.textLight} style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Speedometer Reading"
+              placeholderTextColor={COLORS.textLight}
+              value={speedometerReading}
+              onChangeText={setSpeedometerReading}
+              keyboardType="numeric"
+            />
+          </View>
+
+          {/* DEFECTIVE ITEMS */}
+          <Text style={styles.sectionTitle}>
+            <Ionicons name="warning-outline" size={16} color={COLORS.text} /> Defective Items Check
+          </Text>
+          <Text style={styles.sectionSubtitle}>Check any defective item and give details under "Remarks"</Text>
+
+          <View style={styles.checkboxGrid}>
+            {DEFECTIVE_ITEMS.map((item) => (
+              <TouchableOpacity
+                key={item.id}
                 style={[
-                  styles.categoryButtonText,
-                  selectedCategory === category.name && styles.categoryButtonTextActive,
+                  styles.checkboxItem,
+                  selectedDefectiveItems[item.id] && styles.checkboxItemSelected,
                 ]}
+                onPress={() => toggleDefectiveItem(item.id)}
               >
-                {category.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <Ionicons
+                  name={selectedDefectiveItems[item.id] ? "checkbox" : "square-outline"}
+                  size={20}
+                  color={selectedDefectiveItems[item.id] ? COLORS.primary : COLORS.textLight}
+                />
+                <Text style={[
+                  styles.checkboxText,
+                  selectedDefectiveItems[item.id] && styles.checkboxTextSelected,
+                  item.asterisk && styles.checkboxTextAsterisk
+                ]}>
+                  {item.asterisk ? "* " : ""}{item.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* TRUCK/TRAILER SECTION */}
+          <Text style={styles.sectionTitle}>
+            <Ionicons name="bus-outline" size={16} color={COLORS.text} /> Truck/Trailer Items
+          </Text>
+          <Text style={styles.sectionSubtitle}>This section to be filled out by truck/trailer drivers only</Text>
+
+          <View style={styles.inputContainer}>
+            <Ionicons name="pricetag-outline" size={22} color={COLORS.textLight} style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Trailer Number"
+              placeholderTextColor={COLORS.textLight}
+              value={trailerNumber}
+              onChangeText={setTrailerNumber}
+            />
+          </View>
+
+          <View style={styles.checkboxGrid}>
+            {TRUCK_TRAILER_ITEMS.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={[
+                  styles.checkboxItem,
+                  selectedTruckTrailerItems[item.id] && styles.checkboxItemSelected,
+                ]}
+                onPress={() => toggleTruckTrailerItem(item.id)}
+              >
+                <Ionicons
+                  name={selectedTruckTrailerItems[item.id] ? "checkbox" : "square-outline"}
+                  size={20}
+                  color={selectedTruckTrailerItems[item.id] ? COLORS.primary : COLORS.textLight}
+                />
+                <Text style={[
+                  styles.checkboxText,
+                  selectedTruckTrailerItems[item.id] && styles.checkboxTextSelected
+                ]}>
+                  {item.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* REMARKS */}
+          <Text style={styles.sectionTitle}>
+            <Ionicons name="document-text-outline" size={16} color={COLORS.text} /> Remarks
+          </Text>
+
+          <View style={styles.textAreaContainer}>
+            <TextInput
+              style={styles.textArea}
+              placeholder="Enter any remarks or details about defective items..."
+              placeholderTextColor={COLORS.textLight}
+              value={remarks}
+              onChangeText={setRemarks}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+          </View>
+
+          {/* CONDITION STATUS */}
+          <Text style={styles.sectionTitle}>
+            <Ionicons name="checkmark-circle-outline" size={16} color={COLORS.text} /> Vehicle Condition
+          </Text>
+
+          <TouchableOpacity
+            style={styles.radioContainer}
+            onPress={() => setConditionSatisfactory(true)}
+          >
+            <Ionicons
+              name={conditionSatisfactory ? "radio-button-on" : "radio-button-off"}
+              size={20}
+              color={COLORS.primary}
+            />
+            <Text style={styles.radioText}>Condition of above vehicle(s) is/are satisfactory</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.radioContainer}
+            onPress={() => setConditionSatisfactory(false)}
+          >
+            <Ionicons
+              name={!conditionSatisfactory ? "radio-button-on" : "radio-button-off"}
+              size={20}
+              color={COLORS.primary}
+            />
+            <Text style={styles.radioText}>Condition is not satisfactory</Text>
+          </TouchableOpacity>
+
+          {/* SIGNATURES */}
+          <Text style={styles.sectionTitle}>
+            <Ionicons name="create-outline" size={16} color={COLORS.text} /> Signatures
+          </Text>
+
+          <View style={styles.inputContainer}>
+            <Ionicons name="person-outline" size={22} color={COLORS.textLight} style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Driver's Signature"
+              placeholderTextColor={COLORS.textLight}
+              value={driverSignature}
+              onChangeText={setDriverSignature}
+            />
+          </View>
+
+          {/* DEFECTS CORRECTION */}
+          <TouchableOpacity
+            style={styles.checkboxContainer}
+            onPress={() => setDefectsCorrected(!defectsCorrected)}
+          >
+            <Ionicons
+              name={defectsCorrected ? "checkbox" : "square-outline"}
+              size={20}
+              color={defectsCorrected ? COLORS.primary : COLORS.textLight}
+            />
+            <Text style={styles.checkboxText}>Above defects corrected</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.checkboxContainer}
+            onPress={() => setDefectsNeedCorrection(!defectsNeedCorrection)}
+          >
+            <Ionicons
+              name={defectsNeedCorrection ? "checkbox" : "square-outline"}
+              size={20}
+              color={defectsNeedCorrection ? COLORS.primary : COLORS.textLight}
+            />
+            <Text style={styles.checkboxText}>Above defects need not be corrected for safe operation of vehicle</Text>
+          </TouchableOpacity>
+
+          <View style={styles.inputContainer}>
+            <Ionicons name="construct-outline" size={22} color={COLORS.textLight} style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Mechanic's Signature"
+              placeholderTextColor={COLORS.textLight}
+              value={mechanicSignature}
+              onChangeText={setMechanicSignature}
+            />
+          </View>
         </View>
-      </View>
+      </ScrollView>
 
       {isLoading && (
         <View style={styles.loadingContainer}>
@@ -206,4 +361,5 @@ const CreateScreen = () => {
     </View>
   );
 };
-export default CreateScreen;
+
+export default CreateInspectionScreen;

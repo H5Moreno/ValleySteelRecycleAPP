@@ -2,23 +2,20 @@ import { SignedIn, SignedOut, useUser } from "@clerk/clerk-expo";
 import { Link, useRouter, useFocusEffect } from "expo-router";
 import { Alert, FlatList, Image, RefreshControl, Text, TouchableOpacity, View } from "react-native";
 import { SignOutButton } from "@/components/SignOutButton";
-import { useTransactions } from "../../hooks/useTransactions";
-import { useCallback, useEffect, useState } from "react";
+import { useInspections } from "../../hooks/useInspections";
+import { useCallback, useState } from "react";
 import PageLoader from "../../components/PageLoader";
 import { styles } from "../../assets/styles/home.styles";
-import { Ionicons } from "@expo/vector-icons";
 import { BalanceCard } from "../../components/BalanceCard";
-import { TransactionItem } from "../../components/TransactionItem";
-import NoTransactionsFound from "../../components/NoTransactionsFound";
+import { InspectionItem } from "../../components/InspectionItem";
+import NoInspectionsFound from "../../components/NoInspectionsFound"; // Changed from named to default import
 
 export default function Page() {
   const { user } = useUser();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
 
-  const { transactions, summary, isLoading, loadData, deleteTransaction } = useTransactions(
-    user.id
-  );
+  const { inspections, isLoading, loadData, deleteInspection } = useInspections(user.id);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -34,13 +31,13 @@ export default function Page() {
   );
 
   const handleDelete = (id) => {
-    Alert.alert("Delete Transaction", "Are you sure you want to delete this transaction?", [
+    Alert.alert("Delete Inspection", "Are you sure you want to delete this inspection?", [
       { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => deleteTransaction(id) },
+      { text: "Delete", style: "destructive", onPress: () => deleteInspection(id) },
     ]);
   };
 
-  if (isLoading && !refreshing) return <PageLoader />;
+  if (isLoading) return <PageLoader />;
 
   return (
     <View style={styles.container}>
@@ -67,20 +64,19 @@ export default function Page() {
           </View>
         </View>
 
-        <BalanceCard summary={summary} onAddPress={() => router.push("/create")} />
+        <BalanceCard onAddPress={() => router.push("/create")} />
 
         <View style={styles.transactionsHeaderContainer}>
-          <Text style={styles.sectionTitle}>Recent Paperwork</Text>
+          <Text style={styles.sectionTitle}>Recent Inspections</Text>
         </View>
       </View>
 
-      {/* Move FlatList outside of content View */}
       <FlatList
         style={styles.transactionsList}
         contentContainerStyle={styles.transactionsListContent}
-        data={transactions}
-        renderItem={({ item }) => <TransactionItem item={item} onDelete={handleDelete} />}
-        ListEmptyComponent={<NoTransactionsFound />}
+        data={inspections}
+        renderItem={({ item }) => <InspectionItem item={item} />}
+        ListEmptyComponent={<NoInspectionsFound />}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       />

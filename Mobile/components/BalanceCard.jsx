@@ -7,9 +7,9 @@ export const BalanceCard = ({ onAddPress }) => {
   return (
     <View style={styles.balanceCard}>
       <TouchableOpacity style={styles.addTransactionButton} onPress={onAddPress}>
-        <Ionicons name="add-circle-outline" size={32} color={COLORS.primary} />
-        <Text style={styles.addTransactionButtonText}>Add New Paperwork</Text>
+        <Ionicons name="clipboard-outline" size={32} color={COLORS.primary} />
+        <Text style={styles.addTransactionButtonText}>New Vehicle Inspection</Text>
       </TouchableOpacity>
-      </View>
-    );
-  };
+    </View>
+  );
+};
