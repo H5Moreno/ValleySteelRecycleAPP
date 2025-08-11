@@ -1,9 +1,10 @@
 import express from "express";
 import dotenv, { parse } from "dotenv";
-import { initDB } from "./config/db.js";  
-import rateLimiter from "./middleware/rateLimiter.js";  
-import inspectionsRoute from "./routes/inspectionsRoute.js";  
-import job from "./config/cron.js";  
+import { initDB } from "./config/db.js"; 
+import rateLimiter from "./middleware/rateLimiter.js";
+import inspectionsRoute from "./routes/inspectionsRoute.js";
+import adminRoute from "./routes/adminRoute.js";
+import job from "./config/cron.js";
 
 dotenv.config();
 
@@ -26,6 +27,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/inspections", inspectionsRoute);
+app.use("/api/admin", adminRoute); // Add this
 
 initDB().then (() => {
     app.listen(PORT, () => {
