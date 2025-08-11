@@ -57,30 +57,41 @@ export const useAdmin = (userId) => {
   const updateInspection = useCallback(async (inspectionId, updateData) => {
     if (!userId) return;
     try {
-      const response = await fetch(`${API_URL}/admin/inspections/${inspectionId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...updateData,
-          adminUserId: userId
-        }),
-      });
+        console.log('=== ADMIN UPDATE REQUEST ===');
+        console.log('Inspection ID:', inspectionId);
+        console.log('Update data:', updateData);
+        
+        const response = await fetch(`${API_URL}/admin/inspections/${inspectionId}`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                ...updateData,
+                adminUserId: userId
+            }),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update inspection");
-      }
+        console.log('Response status:', response.status);
 
-      // Refresh data
-      await fetchAllInspections();
-      Alert.alert("Success", "Inspection updated successfully");
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Error response:', errorText);
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const result = await response.json();
+        console.log('✅ Update successful:', result);
+
+        // Refresh data
+        await fetchAllInspections();
+        return result;
+        
     } catch (error) {
-      console.error("Error updating inspection:", error);
-      Alert.alert("Error", error.message);
+        console.error("Error updating inspection:", error);
+        throw error; // Re-throw so the component can handle it
     }
-  }, [userId, fetchAllInspections]);
+}, [userId, fetchAllInspections]);
 
   const deleteInspection = useCallback(async (inspectionId) => {
     if (!userId) return;

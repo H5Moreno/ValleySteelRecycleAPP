@@ -15,6 +15,6 @@ router.get("/inspections/:userId", getAllInspections);
 router.get("/stats/:userId", getInspectionStats);
 router.put("/inspections/:id", updateInspection);
 router.delete("/inspections/:id", adminDeleteInspection);
-router.post("/single-inspection/:id", getAdminSingleInspection); 
+router.post("/single-inspection/:id", getAdminSingleInspection);
 
 export default router;

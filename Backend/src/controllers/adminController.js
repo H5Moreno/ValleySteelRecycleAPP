@@ -45,63 +45,81 @@ export async function getAllInspections(req, res) {
 // Update inspection (admin only)
 export async function updateInspection(req, res) {
     try {
+        console.log('=== ADMIN UPDATE INSPECTION REQUEST ===');
+        console.log('Params:', req.params);
+        console.log('Body:', req.body);
+        
         const { id } = req.params;
         const { adminUserId, ...updateData } = req.body;
         
+        if (!id || !adminUserId) {
+            console.log('❌ Missing required parameters');
+            return res.status(400).json({ error: "Missing inspection ID or admin user ID" });
+        }
+        
         // Verify admin status
+        console.log('Checking admin status for user:', adminUserId);
         const adminCheck = await sql`SELECT role FROM users WHERE id = ${adminUserId}`;
+        console.log('Admin check result:', adminCheck);
+        console.log('Admin check rows:', adminCheck.rows);
+        console.log('Admin role:', adminCheck.rows?.[0]?.role);
+        
         if (adminCheck.rows?.[0]?.role !== 'admin') {
+            console.log('❌ Access denied - not admin');
             return res.status(403).json({ error: "Access denied. Admin privileges required." });
         }
-
-        const { 
-            location, 
-            date,
-            time,
-            vehicle, 
-            speedometer_reading,
-            defective_items,
-            truck_trailer_items,
-            trailer_number,
-            remarks,
-            condition_satisfactory,
-            driver_signature,
-            defects_corrected,
-            defects_need_correction,
-            mechanic_signature
-        } = updateData;
-
+        
+        console.log('✅ Admin verified, updating inspection:', id);
+        console.log('Update data:', updateData);
+        
+        // First get the current inspection
+        const currentInspection = await sql`
+            SELECT * FROM vehicle_inspections WHERE id = ${id}
+        `;
+        
+        console.log('Current inspection query result:', currentInspection);
+        
+        if (!currentInspection.rows || currentInspection.rows.length === 0) {
+            console.log('❌ Inspection not found');
+            return res.status(404).json({ error: "Inspection not found" });
+        }
+        
+        const current = currentInspection.rows[0];
+        console.log('Current inspection data:', current);
+        
+        // Update with new values or keep existing ones (REMOVED updated_at)
         const result = await sql`
             UPDATE vehicle_inspections 
             SET 
-                location = ${location},
-                date = ${date},
-                time = ${time},
-                vehicle = ${vehicle},
-                speedometer_reading = ${speedometer_reading},
-                defective_items = ${JSON.stringify(defective_items)},
-                truck_trailer_items = ${JSON.stringify(truck_trailer_items)},
-                trailer_number = ${trailer_number},
-                remarks = ${remarks},
-                condition_satisfactory = ${condition_satisfactory},
-                driver_signature = ${driver_signature},
-                defects_corrected = ${defects_corrected},
-                defects_need_correction = ${defects_need_correction},
-                mechanic_signature = ${mechanic_signature},
-                updated_at = CURRENT_TIMESTAMP,
-                updated_by = ${adminUserId}
+                location = ${updateData.location !== undefined ? updateData.location : current.location},
+                date = ${updateData.date !== undefined ? updateData.date : current.date},
+                time = ${updateData.time !== undefined ? updateData.time : current.time},
+                vehicle = ${updateData.vehicle !== undefined ? updateData.vehicle : current.vehicle},
+                speedometer_reading = ${updateData.speedometer_reading !== undefined ? updateData.speedometer_reading : current.speedometer_reading},
+                defective_items = ${updateData.defective_items !== undefined ? JSON.stringify(updateData.defective_items) : current.defective_items},
+                truck_trailer_items = ${updateData.truck_trailer_items !== undefined ? JSON.stringify(updateData.truck_trailer_items) : current.truck_trailer_items},
+                trailer_number = ${updateData.trailer_number !== undefined ? updateData.trailer_number : current.trailer_number},
+                remarks = ${updateData.remarks !== undefined ? updateData.remarks : current.remarks},
+                condition_satisfactory = ${updateData.condition_satisfactory !== undefined ? updateData.condition_satisfactory : current.condition_satisfactory},
+                driver_signature = ${updateData.driver_signature !== undefined ? updateData.driver_signature : current.driver_signature},
+                defects_corrected = ${updateData.defects_corrected !== undefined ? updateData.defects_corrected : current.defects_corrected},
+                defects_need_correction = ${updateData.defects_need_correction !== undefined ? updateData.defects_need_correction : current.defects_need_correction},
+                mechanic_signature = ${updateData.mechanic_signature !== undefined ? updateData.mechanic_signature : current.mechanic_signature}
             WHERE id = ${id}
             RETURNING *
         `;
-
-        if (result.rows?.length === 0) {
-            return res.status(404).json({ error: "Inspection not found" });
-        }
-
-        res.status(200).json(result.rows?.[0] || result[0]);
+        
+        console.log('Update result:', result);
+        console.log('✅ Inspection updated successfully');
+        
+        res.status(200).json({ 
+            message: "Inspection updated successfully", 
+            inspection: result.rows?.[0] || result[0]
+        });
+        
     } catch (error) {
-        console.error("Error updating inspection:", error);
-        res.status(500).json({ error: "Internal server error" });
+        console.error("❌ Error updating inspection:", error);
+        res.status(500).json({ error: "Internal server error: " + error.message });
     }
 }
 

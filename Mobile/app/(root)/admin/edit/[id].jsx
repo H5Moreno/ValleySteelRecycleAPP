@@ -5,8 +5,9 @@ import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { styles } from "../../../../assets/styles/create.styles";
 import { COLORS } from "../../../../constants/colors";
-import { useAdmin } from "../../../../hooks/useAdmin";
+import { API_URL } from "../../../../constants/api"; // Add this import
 import { DEFECTIVE_ITEMS, TRUCK_TRAILER_ITEMS } from "../../../../constants/inspectionItems";
+import { useAdmin } from "../../../../hooks/useAdmin";
 import PageLoader from "../../../../components/PageLoader";
 
 const EditInspectionScreen = () => {
@@ -54,7 +55,7 @@ const EditInspectionScreen = () => {
         setSpeedometerReading(foundInspection.speedometer_reading || "");
         setTrailerNumber(foundInspection.trailer_number || "");
         setRemarks(foundInspection.remarks || "");
-        setConditionSatisfactory(foundInspection.condition_satisfactory !== false);
+        setConditionSatisfactory(foundInspection.condition_satisfactory || true);
         setDefectsCorrected(foundInspection.defects_corrected || false);
         setDefectsNeedCorrection(foundInspection.defects_need_correction || false);
         setDriverSignature(foundInspection.driver_signature || "");
@@ -62,21 +63,17 @@ const EditInspectionScreen = () => {
         
         // Parse JSON fields
         try {
-          const defectiveItems = foundInspection.defective_items;
-          const truckTrailerItems = foundInspection.truck_trailer_items;
+          const defectiveItems = typeof foundInspection.defective_items === 'string' 
+            ? JSON.parse(foundInspection.defective_items) 
+            : foundInspection.defective_items || {};
+          const truckTrailerItems = typeof foundInspection.truck_trailer_items === 'string'
+            ? JSON.parse(foundInspection.truck_trailer_items)
+            : foundInspection.truck_trailer_items || {};
           
-          setSelectedDefectiveItems(
-            typeof defectiveItems === 'string' 
-              ? JSON.parse(defectiveItems) 
-              : defectiveItems || {}
-          );
-          setSelectedTruckTrailerItems(
-            typeof truckTrailerItems === 'string' 
-              ? JSON.parse(truckTrailerItems) 
-              : truckTrailerItems || {}
-          );
+          setSelectedDefectiveItems(defectiveItems);
+          setSelectedTruckTrailerItems(truckTrailerItems);
         } catch (error) {
-          console.error("Error parsing JSON fields:", error);
+          console.error('Error parsing JSON fields:', error);
           setSelectedDefectiveItems({});
           setSelectedTruckTrailerItems({});
         }
@@ -107,6 +104,10 @@ const EditInspectionScreen = () => {
         return;
       }
 
+      console.log('=== UPDATING INSPECTION ===');
+      console.log('Inspection ID:', id);
+      console.log('Admin User ID:', user.id);
+
       const updateData = {
         location: location.trim(),
         date,
@@ -121,13 +122,39 @@ const EditInspectionScreen = () => {
         driver_signature: driverSignature.trim(),
         defects_corrected: defectsCorrected,
         defects_need_correction: defectsNeedCorrection,
-        mechanic_signature: mechanicSignature.trim()
+        mechanic_signature: mechanicSignature.trim(),
+        adminUserId: user.id
       };
 
-      await updateInspection(id, updateData);
-      router.back();
+      console.log('Update data being sent:', updateData);
+
+      const response = await fetch(`${API_URL}/admin/inspections/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updateData),
+      });
+
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Error response:', errorData);
+        throw new Error(`HTTP ${response.status}: ${errorData}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Update successful:', result);
+
+      Alert.alert("Success", "Inspection updated successfully", [
+        { text: "OK", onPress: () => router.back() }
+      ]);
+      
     } catch (error) {
       console.error("Error updating inspection:", error);
+      Alert.alert("Error", `Failed to update inspection: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
