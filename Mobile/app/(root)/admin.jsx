@@ -1,32 +1,59 @@
-import { View, Text, FlatList, TouchableOpacity, Alert, RefreshControl } from "react-native";
-import { useState } from "react";
-import { useRouter } from "expo-router";
+import { View, Text, FlatList, TouchableOpacity, Alert, RefreshControl, ScrollView } from "react-native";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { styles } from "../../assets/styles/admin.styles";
 import { COLORS } from "../../constants/colors";
-import { useAdmin } from "../../hooks/useAdmin";
+import { useAdmin } from "../../hooks/useAdmin"; 
 import PageLoader from "../../components/PageLoader";
+import DefectiveItemsChart from "../../components/DefectiveItemsChart";
 import { formatDate } from "../../lib/utils";
 
 const AdminDashboard = () => {
   const router = useRouter();
   const { user } = useUser();
   const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdateTime, setLastUpdateTime] = useState(new Date());
   
   const { 
     isAdmin, 
     allInspections, 
     stats, 
+    defectiveItemsStats,
     isLoading, 
     loadAdminData, 
     deleteInspection 
-  } = useAdmin(user.id);
+  } = useAdmin(user?.id); // Add optional chaining here
+
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (isAdmin && !isLoading && user?.id) {
+        console.log('🔄 Admin dashboard focused - refreshing data...');
+        loadAdminData();
+        setLastUpdateTime(new Date());
+      }
+    }, [isAdmin, isLoading, loadAdminData, user?.id])
+  );
+
+  // Update last update time when inspections change
+  useEffect(() => {
+    if (allInspections.length > 0) {
+      setLastUpdateTime(new Date());
+    }
+  }, [allInspections]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadAdminData();
-    setRefreshing(false);
+    try {
+      await loadAdminData();
+      setLastUpdateTime(new Date());
+    } catch (error) {
+      console.error('Error refreshing admin dashboard:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleDelete = (id) => {
@@ -93,6 +120,11 @@ const AdminDashboard = () => {
     </View>
   );
 
+  // Early return if user is not loaded yet
+  if (!user) {
+    return <PageLoader />;
+  }
+
   if (isLoading) return <PageLoader />;
 
   if (!isAdmin) {
@@ -121,12 +153,23 @@ const AdminDashboard = () => {
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={COLORS.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Admin Dashboard</Text>
+        <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
+          <Ionicons name="refresh-outline" size={24} color={COLORS.primary} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Auto-refresh indicator */}
+      <View style={styles.refreshIndicator}>
+        <Ionicons name="time-outline" size={16} color={COLORS.textLight} />
+        <Text style={styles.refreshText}>
+          Last updated: {lastUpdateTime.toLocaleTimeString()} • Auto-refreshing every 30s
+        </Text>
       </View>
 
       {/* Stats Cards */}
@@ -151,17 +194,29 @@ const AdminDashboard = () => {
         </View>
       )}
 
-      <FlatList
-        data={allInspections}
-        renderItem={renderInspectionItem}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      />
-    </View>
+      {/* Chart */}
+      <DefectiveItemsChart data={defectiveItemsStats} />
+
+      {/* Inspections List */}
+      <View style={{ flex: 1, minHeight: 400 }}>
+        <FlatList
+          data={allInspections}
+          renderItem={renderInspectionItem}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl 
+              refreshing={refreshing} 
+              onRefresh={onRefresh}
+              colors={[COLORS.primary]}
+              tintColor={COLORS.primary}
+            />
+          }
+          scrollEnabled={false}
+        />
+      </View>
+    </ScrollView>
   );
 };
 

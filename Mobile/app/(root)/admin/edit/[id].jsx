@@ -5,7 +5,7 @@ import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
 import { styles } from "../../../../assets/styles/create.styles";
 import { COLORS } from "../../../../constants/colors";
-import { API_URL } from "../../../../constants/api"; // Add this import
+import { API_URL } from "../../../../constants/api"; 
 import { DEFECTIVE_ITEMS, TRUCK_TRAILER_ITEMS } from "../../../../constants/inspectionItems";
 import { useAdmin } from "../../../../hooks/useAdmin";
 import PageLoader from "../../../../components/PageLoader";

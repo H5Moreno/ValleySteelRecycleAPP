@@ -1,5 +1,63 @@
 import { sql } from "../config/db.js";
 
+
+export async function getDefectiveItemsStats(req, res) {
+    try {
+        const { userId } = req.params;
+        
+        // Verify admin status
+        const adminCheck = await sql`SELECT role FROM users WHERE id = ${userId}`;
+        if (adminCheck.rows?.[0]?.role !== 'admin') {
+            return res.status(403).json({ error: "Access denied. Admin privileges required." });
+        }
+
+        // Get all inspections with defective items
+        const inspections = await sql`
+            SELECT defective_items 
+            FROM vehicle_inspections 
+            WHERE defective_items IS NOT NULL 
+            AND defective_items != '{}' 
+            AND defective_items != 'null'
+        `;
+
+        // Count frequency of each defective item
+        const itemCounts = {};
+        
+        inspections.rows?.forEach(inspection => {
+            try {
+                const defectiveItems = typeof inspection.defective_items === 'string' 
+                    ? JSON.parse(inspection.defective_items) 
+                    : inspection.defective_items;
+                
+                if (defectiveItems && typeof defectiveItems === 'object') {
+                    Object.entries(defectiveItems).forEach(([itemKey, isSelected]) => {
+                        if (isSelected) {
+                            itemCounts[itemKey] = (itemCounts[itemKey] || 0) + 1;
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error parsing defective items:', error);
+            }
+        });
+
+        // Convert to array format for chart
+        const chartData = Object.entries(itemCounts)
+            .map(([itemKey, count]) => ({
+                itemKey,
+                count,
+                // Convert snake_case to readable format
+                label: itemKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+            }))
+            .sort((a, b) => b.count - a.count); // Sort by frequency
+
+        res.status(200).json(chartData);
+    } catch (error) {
+        console.error("Error getting defective items stats:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+}
+
 // Check if user is admin
 export async function checkAdminStatus(req, res) {
     try {
