@@ -180,4 +180,22 @@ export const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
+  refreshButton: {
+    padding: 8,
+  },
+  
+  refreshIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: COLORS.background,
+  },
+  
+  refreshText: {
+    fontSize: 12,
+    color: COLORS.textLight,
+    marginLeft: 6,
+  },
 });
