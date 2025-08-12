@@ -91,4 +91,81 @@ export const styles = StyleSheet.create({
   categoryIcon: {
     marginRight: 6,
   },
+  adminInfoSection: {
+    marginBottom: 16,
+  },
+  adminInfoBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: `${COLORS.primary}15`,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    alignSelf: "center",
+  },
+  adminInfoText: {
+    marginLeft: 4,
+    fontSize: 12,
+    color: COLORS.primary,
+    fontWeight: "500",
+  },
+  status: {
+    fontSize: 18,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  statusContainer: {
+    marginBottom: 20,
+  },
+  section: {
+    width: "100%",
+    marginTop: 20,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 12,
+  },
+  itemsList: {
+    backgroundColor: COLORS.background,
+    borderRadius: 8,
+    padding: 12,
+  },
+  listItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  listItemText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: COLORS.text,
+  },
+  remarksText: {
+    fontSize: 14,
+    color: COLORS.text,
+    backgroundColor: COLORS.background,
+    padding: 12,
+    borderRadius: 8,
+    lineHeight: 20,
+  },
+  signatureRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+    backgroundColor: COLORS.background,
+    padding: 8,
+    borderRadius: 6,
+  },
+  signatureLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: COLORS.text,
+  },
+  signatureText: {
+    fontSize: 14,
+    color: COLORS.textLight,
+  },
 });

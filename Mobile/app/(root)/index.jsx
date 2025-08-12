@@ -1,6 +1,8 @@
 import { SignedIn, SignedOut, useUser } from "@clerk/clerk-expo";
 import { Link, useRouter, useFocusEffect } from "expo-router";
 import { Alert, FlatList, Image, RefreshControl, Text, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons"; // Add this import
+import { COLORS } from "../../constants/colors"; // Add this import
 import { SignOutButton } from "@/components/SignOutButton";
 import { useInspections } from "../../hooks/useInspections";
 import { useCallback, useState } from "react";
@@ -8,14 +10,18 @@ import PageLoader from "../../components/PageLoader";
 import { styles } from "../../assets/styles/home.styles";
 import { BalanceCard } from "../../components/BalanceCard";
 import { InspectionItem } from "../../components/InspectionItem";
-import NoInspectionsFound from "../../components/NoInspectionsFound"; // Changed from named to default import
+import NoInspectionsFound from "../../components/NoInspectionsFound"; 
+import { useAdmin } from "../../hooks/useAdmin";
+import { styles as adminStyles } from "../../assets/styles/admin.styles";
 
 export default function Page() {
   const { user } = useUser();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
+  const { isAdmin } = useAdmin(user.id);
 
   const { inspections, isLoading, loadData, deleteInspection } = useInspections(user.id);
+  
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -60,6 +66,14 @@ export default function Page() {
           </View>
           {/* RIGHT */}
           <View style={styles.headerRight}>
+            {isAdmin && (
+              <TouchableOpacity 
+                style={styles.adminButton}
+                onPress={() => router.push("/admin")}
+              >
+                <Ionicons name="clipboard-outline" size={24} color={COLORS.primary} />
+              </TouchableOpacity>
+            )}
             <SignOutButton />
           </View>
         </View>
