@@ -3,13 +3,18 @@ import { sql } from "../config/db.js";
 export async function getInspectionsByUserId(req, res) {
     try {
         const { userId } = req.params;
+        console.log('Fetching inspections for user:', userId);
         
         const result = await sql`
             SELECT * FROM vehicle_inspections WHERE user_id = ${userId} ORDER BY created_at DESC
         `;
         
-        // Return just the rows array, not the entire database response object
-        res.status(200).json(result.rows || result);
+        console.log('Query result:', result);
+        
+        // Handle both Vercel Postgres and regular response formats
+        const inspections = result.rows || result;
+        
+        res.status(200).json(inspections);
     } catch (error) {
         console.log("Error fetching inspections:", error);
         res.status(500).json({ error: "Internal server error" });
@@ -90,20 +95,55 @@ export async function deleteInspection (req, res) {
 
 export async function getSingleInspection(req, res) {
     try {
+        console.log('=== GET SINGLE INSPECTION ===');
         const { id } = req.params;
+        console.log('Fetching inspection ID:', id);
+        
+        if (!id) {
+            return res.status(400).json({ error: "Inspection ID is required" });
+        }
         
         const result = await sql`
-            SELECT * FROM vehicle_inspections 
-            WHERE id = ${id}
+            SELECT vi.*, u.email as user_email 
+            FROM vehicle_inspections vi 
+            LEFT JOIN users u ON vi.user_id = u.id 
+            WHERE vi.id = ${id}
         `;
         
-        if (result.length === 0) {
+        const inspectionResult = result.rows || result;
+        console.log('Query result:', inspectionResult);
+        
+        if (!inspectionResult || inspectionResult.length === 0) {
             return res.status(404).json({ error: "Inspection not found" });
         }
         
-        res.status(200).json(result[0]);
+        const inspection = inspectionResult[0];
+        console.log('Found inspection:', inspection);
+        
+        // Parse JSON fields if they're strings
+        if (typeof inspection.defective_items === 'string') {
+            try {
+                inspection.defective_items = JSON.parse(inspection.defective_items);
+            } catch (error) {
+                console.error('Error parsing defective_items:', error);
+                inspection.defective_items = {};
+            }
+        }
+        
+        if (typeof inspection.truck_trailer_items === 'string') {
+            try {
+                inspection.truck_trailer_items = JSON.parse(inspection.truck_trailer_items);
+            } catch (error) {
+                console.error('Error parsing truck_trailer_items:', error);
+                inspection.truck_trailer_items = {};
+            }
+        }
+        
+        console.log('Returning parsed inspection:', inspection);
+        res.status(200).json(inspection);
+        
     } catch (error) {
         console.error("Error fetching single inspection:", error);
-        res.status(500).json({ error: "Internal server error" });
+        res.status(500).json({ error: "Internal server error: " + error.message });
     }
 }

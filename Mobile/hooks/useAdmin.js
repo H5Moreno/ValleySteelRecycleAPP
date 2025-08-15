@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Alert, AppState } from "react-native";
+import { Alert } from "react-native";
 import { API_URL } from "../constants/api";
 
 export const useAdmin = (userId) => {
@@ -8,16 +8,31 @@ export const useAdmin = (userId) => {
   const [stats, setStats] = useState(null);
   const [defectiveItemsStats, setDefectiveItemsStats] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [lastInspectionCount, setLastInspectionCount] = useState(0);
+  const [lastFetchTime, setLastFetchTime] = useState(0);
   
-  // Refs for managing intervals and app state
-  const pollingInterval = useRef(null);
-  const appState = useRef(AppState.currentState);
+  // Add ref to track if initial load has been done
+  const hasInitiallyLoaded = useRef(false);
+  const isCurrentlyLoading = useRef(false);
+
+  // Add delay utility
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
   const checkAdminStatus = useCallback(async () => {
     if (!userId) return false;
     try {
+      console.log('Checking admin status for:', userId);
       const response = await fetch(`${API_URL}/admin/check/${userId}`);
+      
+      if (response.status === 429) {
+        console.warn('Admin check rate limited');
+        return false;
+      }
+      
+      if (!response.ok) {
+        console.error('Admin check response not OK:', response.status);
+        return false;
+      }
+      
       const data = await response.json();
       setIsAdmin(data.isAdmin);
       return data.isAdmin;
@@ -30,82 +45,132 @@ export const useAdmin = (userId) => {
   const fetchAllInspections = useCallback(async () => {
     if (!userId) return;
     try {
-      const response = await fetch(`${API_URL}/admin/inspections/${userId}`);
-      const data = await response.json();
+      console.log('Fetching all inspections for:', userId);
+      await delay(200); // Small delay between requests
       
-      if (response.ok) {
+      const response = await fetch(`${API_URL}/admin/inspections/${userId}`);
+      
+      if (response.status === 429) {
+        console.warn('Inspections fetch rate limited');
+        throw new Error('Rate limited - please wait');
+      }
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Inspections response error:', response.status, errorText);
+        throw new Error(`Failed to fetch inspections`);
+      }
+      
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        console.log('Fetched inspections count:', data.length);
         setAllInspections(data);
-        
-        // Check if new inspections were added
-        if (data.length > lastInspectionCount && lastInspectionCount > 0) {
-          console.log('🔄 New inspection(s) detected! Refreshing dashboard...');
-        }
-        setLastInspectionCount(data.length);
-      } else {
-        throw new Error(data.error || "Failed to fetch inspections");
       }
     } catch (error) {
       console.error("Error fetching all inspections:", error);
+      if (!error.message.includes('Rate limited')) {
+        throw error;
+      }
     }
-  }, [userId, lastInspectionCount]);
+  }, [userId]);
 
   const fetchStats = useCallback(async () => {
     if (!userId) return;
     try {
-      const response = await fetch(`${API_URL}/admin/stats/${userId}`);
-      const data = await response.json();
+      await delay(400); // Stagger requests
       
-      if (response.ok) {
-        setStats(data);
-      } else {
-        throw new Error(data.error || "Failed to fetch stats");
+      const response = await fetch(`${API_URL}/admin/stats/${userId}`);
+      
+      if (response.status === 429) {
+        console.warn('Stats fetch rate limited');
+        return;
       }
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Stats response error:', response.status, errorText);
+        throw new Error(`Failed to fetch stats`);
+      }
+      
+      const data = await response.json();
+      setStats(data);
     } catch (error) {
       console.error("Error fetching stats:", error);
+      if (!error.message.includes('Rate limited')) {
+        throw error;
+      }
     }
   }, [userId]);
 
   const fetchDefectiveItemsStats = useCallback(async () => {
     if (!userId) return;
     try {
-      const response = await fetch(`${API_URL}/admin/defective-items-stats/${userId}`);
-      const data = await response.json();
+      await delay(600); // Further stagger requests
       
-      if (response.ok) {
+      const response = await fetch(`${API_URL}/admin/defective-items-stats/${userId}`);
+      
+      if (response.status === 429) {
+        console.warn('Defective items stats rate limited');
+        return;
+      }
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Defective items stats response error:', response.status, errorText);
+        throw new Error(`Failed to fetch defective items stats`);
+      }
+      
+      const data = await response.json();
+      if (Array.isArray(data)) {
         setDefectiveItemsStats(data);
-      } else {
-        throw new Error(data.error || "Failed to fetch defective items stats");
       }
     } catch (error) {
       console.error("Error fetching defective items stats:", error);
+      if (!error.message.includes('Rate limited')) {
+        throw error;
+      }
     }
   }, [userId]);
 
-  // Polling function to refresh data
-  const pollForUpdates = useCallback(async () => {
-    if (!userId || !isAdmin) return;
-    
-    try {
-      await fetchAllInspections();
-    } catch (error) {
-      console.error("Error during polling:", error);
-    }
-  }, [userId, isAdmin, fetchAllInspections]);
-
-  // Full data refresh function
   const refreshAllData = useCallback(async () => {
-    if (!userId || !isAdmin) return;
+    if (!userId || isCurrentlyLoading.current) {
+      console.log('Skipping refresh - no userId or already loading');
+      return;
+    }
+    
+    // Prevent excessive refreshes
+    const now = Date.now();
+    if ((now - lastFetchTime) < 5000) { // 5 second minimum between full refreshes
+      console.log('Skipping refresh - too soon since last refresh');
+      return;
+    }
+    
+    isCurrentlyLoading.current = true;
+    setLastFetchTime(now);
     
     try {
-      await Promise.all([
-        fetchAllInspections(),
-        fetchStats(),
-        fetchDefectiveItemsStats()
-      ]);
+      console.log('🔄 Starting admin data refresh...');
+      const adminStatus = await checkAdminStatus();
+      if (adminStatus) {
+        // Sequential requests to avoid overwhelming the server
+        await fetchAllInspections();
+        await fetchStats();
+        await fetchDefectiveItemsStats();
+      }
+      console.log('✅ Admin data refresh completed');
     } catch (error) {
-      console.error("Error refreshing all data:", error);
+      console.error("❌ Error refreshing all data:", error);
+      if (error.message.includes('Rate limited')) {
+        Alert.alert(
+          "Rate Limited", 
+          "Too many requests. Please wait a moment before refreshing.",
+          [{ text: "OK" }]
+        );
+      }
+    } finally {
+      isCurrentlyLoading.current = false;
     }
-  }, [userId, isAdmin, fetchAllInspections, fetchStats, fetchDefectiveItemsStats]);
+  }, [userId, checkAdminStatus, fetchAllInspections, fetchStats, fetchDefectiveItemsStats, lastFetchTime]);
 
   const updateInspection = useCallback(async (inspectionId, updateData) => {
     if (!userId) return;
@@ -121,12 +186,18 @@ export const useAdmin = (userId) => {
         }),
       });
 
+      if (response.status === 429) {
+        Alert.alert("Rate Limited", "Please wait before trying again.");
+        return;
+      }
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to update inspection");
       }
 
-      // Refresh all data after update
+      // Refresh data after update with delay
+      await delay(1000);
       await refreshAllData();
       Alert.alert("Success", "Inspection updated successfully");
     } catch (error) {
@@ -148,12 +219,18 @@ export const useAdmin = (userId) => {
         }),
       });
 
+      if (response.status === 429) {
+        Alert.alert("Rate Limited", "Please wait before trying again.");
+        return;
+      }
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to delete inspection");
       }
 
-      // Refresh all data after deletion
+      // Refresh data after deletion with delay
+      await delay(1000);
       await refreshAllData();
       Alert.alert("Success", "Inspection deleted successfully");
     } catch (error) {
@@ -163,81 +240,31 @@ export const useAdmin = (userId) => {
   }, [userId, refreshAllData]);
 
   const loadAdminData = useCallback(async () => {
-    if (!userId) return;
+    if (!userId || hasInitiallyLoaded.current) {
+      console.log('Skipping initial load - no userId or already loaded');
+      return;
+    }
 
+    console.log('🚀 Starting initial admin data load...');
+    hasInitiallyLoaded.current = true;
     setIsLoading(true);
+    
     try {
-      const adminStatus = await checkAdminStatus();
-      if (adminStatus) {
-        await refreshAllData();
-      }
+      await refreshAllData();
     } catch (error) {
       console.error("Error loading admin data:", error);
+      hasInitiallyLoaded.current = false; // Reset on error
     } finally {
       setIsLoading(false);
     }
-  }, [checkAdminStatus, refreshAllData, userId]);
+  }, [refreshAllData, userId]);
 
-  // Start/stop polling based on admin status and app state
-  const startPolling = useCallback(() => {
-    if (pollingInterval.current) {
-      clearInterval(pollingInterval.current);
-    }
-    
-    if (isAdmin && userId) {
-      console.log('🚀 Starting admin dashboard polling...');
-      pollingInterval.current = setInterval(() => {
-        pollForUpdates();
-      }, 30000); // Poll every 30 seconds
-    }
-  }, [isAdmin, userId, pollForUpdates]);
-
-  const stopPolling = useCallback(() => {
-    if (pollingInterval.current) {
-      console.log('⏹️ Stopping admin dashboard polling...');
-      clearInterval(pollingInterval.current);
-      pollingInterval.current = null;
-    }
-  }, []);
-
-  // Handle app state changes
+  // FIXED: Only load once on mount with proper dependency control
   useEffect(() => {
-    const handleAppStateChange = (nextAppState) => {
-      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-        console.log('📱 App came to foreground - refreshing admin data...');
-        if (isAdmin && userId) {
-          refreshAllData();
-          startPolling();
-        }
-      } else if (nextAppState.match(/inactive|background/)) {
-        console.log('📱 App went to background - stopping polling...');
-        stopPolling();
-      }
-      appState.current = nextAppState;
-    };
-
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-    return () => subscription?.remove();
-  }, [isAdmin, userId, refreshAllData, startPolling, stopPolling]);
-
-  // Initial load and start polling
-  useEffect(() => {
-    loadAdminData();
-  }, [loadAdminData]);
-
-  // Start/stop polling when admin status changes
-  useEffect(() => {
-    if (isAdmin && userId && !isLoading) {
-      startPolling();
-    } else {
-      stopPolling();
+    if (userId && !hasInitiallyLoaded.current) {
+      loadAdminData();
     }
-
-    // Cleanup on unmount
-    return () => {
-      stopPolling();
-    };
-  }, [isAdmin, userId, isLoading, startPolling, stopPolling]);
+  }, [userId, loadAdminData]);
 
   return { 
     isAdmin, 
@@ -245,11 +272,10 @@ export const useAdmin = (userId) => {
     stats, 
     defectiveItemsStats,
     isLoading, 
-    loadAdminData: refreshAllData,
+    loadAdminData: refreshAllData, // This is for manual refresh only
     updateInspection, 
     deleteInspection
   };
 };
 
-// Also export as default for flexibility
 export default useAdmin;
