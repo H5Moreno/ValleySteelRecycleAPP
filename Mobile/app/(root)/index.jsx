@@ -1,8 +1,8 @@
 import { SignedIn, SignedOut, useUser } from "@clerk/clerk-expo";
 import { Link, useRouter, useFocusEffect } from "expo-router";
 import { Alert, FlatList, Image, RefreshControl, Text, TouchableOpacity, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons"; // Add this import
-import { COLORS } from "../../constants/colors"; // Add this import
+import { Ionicons } from "@expo/vector-icons";
+import { COLORS } from "../../constants/colors";
 import { SignOutButton } from "@/components/SignOutButton";
 import { useInspections } from "../../hooks/useInspections";
 import { useCallback, useState } from "react";
@@ -12,28 +12,33 @@ import { BalanceCard } from "../../components/BalanceCard";
 import { InspectionItem } from "../../components/InspectionItem";
 import NoInspectionsFound from "../../components/NoInspectionsFound"; 
 import { useAdmin } from "../../hooks/useAdmin";
-import { styles as adminStyles } from "../../assets/styles/admin.styles";
 
 export default function Page() {
   const { user } = useUser();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
-  const { isAdmin } = useAdmin(user.id);
+  const { isAdmin } = useAdmin(user?.id);
 
-  const { inspections, isLoading, loadData, deleteInspection } = useInspections(user.id);
+  const { inspections, isLoading, loadData, deleteInspection } = useInspections(user?.id);
   
-
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
+    try {
+      await loadData(true); // Force refresh
+    } catch (error) {
+      console.error('Error refreshing:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
-  // Fetch data every time the screen comes into focus
+  // Only fetch data when screen comes into focus if we don't have data
   useFocusEffect(
     useCallback(() => {
-      loadData();
-    }, [loadData])
+      if (user?.id && inspections.length === 0) {
+        loadData(false); // Don't force refresh on focus
+      }
+    }, [user?.id, inspections.length])
   );
 
   const handleDelete = (id) => {
@@ -43,7 +48,7 @@ export default function Page() {
     ]);
   };
 
-  if (isLoading) return <PageLoader />;
+  if (isLoading && inspections.length === 0) return <PageLoader />;
 
   return (
     <View style={styles.container}>

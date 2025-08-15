@@ -95,6 +95,8 @@ const EditInspectionScreen = () => {
     }));
   };
 
+  // Remove the renderUserManagement function - it doesn't belong here
+
   const handleUpdate = async () => {
     try {
       setIsLoading(true);

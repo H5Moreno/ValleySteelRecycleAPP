@@ -3,7 +3,7 @@ import 'dotenv/config';
 
 async function initDB() {
     try {
-        console.log('Initializing database...');
+        console.log('🔄 Initializing database...');
         
         // Create users table for admin roles
         await sql`CREATE TABLE IF NOT EXISTS users (
@@ -13,27 +13,60 @@ async function initDB() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`;
 
-        // Update your existing account to admin
+        console.log('✅ Users table created/verified');
+
+        // 🔧 RESTORE YOUR ADMIN ACCESS - MULTIPLE ATTEMPTS
         const yourClerkUserId = "user_30yBMfBIYMUv07iT9jOhhVqsfxN";
         const yourEmail = "baldemarguajardo20@gmail.com";
         
-        // Check if user exists by email first
-        const existingUser = await sql`SELECT id, email, role FROM users WHERE email = ${yourEmail}`;
+        console.log('🔑 Setting up admin user...');
+        console.log('Clerk ID:', yourClerkUserId);
+        console.log('Email:', yourEmail);
         
-        if (existingUser.rows && existingUser.rows.length > 0) {
-            // User exists with this email, update their role to admin
-            await sql`UPDATE users SET role = 'admin' WHERE email = ${yourEmail}`;
-            console.log(`Updated existing user ${yourEmail} to admin role.`);
-        } else {
-            // User doesn't exist, create new admin user
+        // Method 1: Delete and recreate (most reliable)
+        try {
+            await sql`DELETE FROM users WHERE email = ${yourEmail}`;
+            await sql`DELETE FROM users WHERE id = ${yourClerkUserId}`;
+            console.log('🗑️ Cleared existing records');
+        } catch (deleteError) {
+            console.log('ℹ️ No existing records to delete');
+        }
+        
+        // Method 2: Insert fresh admin record
+        try {
             await sql`INSERT INTO users (id, email, role) 
                       VALUES (${yourClerkUserId}, ${yourEmail}, 'admin')`;
-            console.log(`Created new admin user ${yourEmail}.`);
+            console.log('✅ Created admin user successfully');
+        } catch (insertError) {
+            console.log('⚠️ Insert failed, trying upsert...');
+            
+            // Method 3: Upsert as fallback
+            await sql`INSERT INTO users (id, email, role) 
+                      VALUES (${yourClerkUserId}, ${yourEmail}, 'admin')
+                      ON CONFLICT (id) DO UPDATE SET 
+                      email = EXCLUDED.email, 
+                      role = 'admin'`;
+            console.log('✅ Upserted admin user');
         }
-
-        // Also handle the case where the Clerk ID might be different
-        // Update the user ID if needed
-        await sql`UPDATE users SET id = ${yourClerkUserId} WHERE email = ${yourEmail} AND id != ${yourClerkUserId}`;
+        
+        // Method 4: Force update any existing record
+        await sql`UPDATE users SET role = 'admin' 
+                  WHERE email = ${yourEmail} OR id = ${yourClerkUserId}`;
+        
+        // Verify admin was created
+        const adminVerification = await sql`
+            SELECT id, email, role FROM users 
+            WHERE email = ${yourEmail} OR id = ${yourClerkUserId}
+        `;
+        
+        const adminUsers = adminVerification.rows || adminVerification;
+        console.log('🔍 Admin verification results:', adminUsers);
+        
+        if (adminUsers.length > 0) {
+            console.log('✅ Admin user confirmed:', adminUsers[0]);
+        } else {
+            console.error('❌ ADMIN USER NOT FOUND AFTER SETUP!');
+        }
 
         // Create vehicle_inspections table
         await sql`CREATE TABLE IF NOT EXISTS vehicle_inspections (
@@ -58,10 +91,32 @@ async function initDB() {
             updated_by VARCHAR(255)
         )`;
 
-        console.log("Database initialized successfully.");
+        console.log("✅ Database initialized successfully.");
+        
     } catch (error) {
-        console.error("Error initializing database:", error);
-        process.exit(1);
+        console.error("❌ Error initializing database:", error);
+        
+        // 🚨 EMERGENCY ADMIN RESTORE
+        try {
+            console.log('🚨 Emergency admin restore...');
+            
+            const yourEmail = "baldemarguajardo20@gmail.com";
+            const yourClerkUserId = "user_30yBMfBIYMUv07iT9jOhhVqsfxN";
+            
+            // Try multiple recovery methods
+            await sql`UPDATE users SET role = 'admin' WHERE email ILIKE ${yourEmail}`;
+            await sql`UPDATE users SET role = 'admin' WHERE id = ${yourClerkUserId}`;
+            
+            // Insert if nothing exists
+            await sql`INSERT INTO users (id, email, role) 
+                      VALUES (${yourClerkUserId}, ${yourEmail}, 'admin')
+                      ON CONFLICT DO NOTHING`;
+            
+            console.log('🆘 Emergency admin restore completed');
+            
+        } catch (emergencyError) {
+            console.error('💥 Emergency restore failed:', emergencyError);
+        }
     }
 }
 
