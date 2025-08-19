@@ -436,29 +436,25 @@ export async function checkAdminStatus(req, res) {
     try {
         const { userId } = req.params;
 
-        // First, check if ANY admin users exist in the entire system.
-        const adminCountResult = await sql`SELECT COUNT(*) FROM users WHERE role = 'admin'`;
-        const adminCount = parseInt((adminCountResult.rows || adminCountResult)[0].count, 10);
-
-        // If no admins exist, trigger the bootstrap flow on the frontend.
+        // Use a single query to check both admin count and user status
+        const result = await sql`
+            SELECT 
+                (SELECT COUNT(*) FROM users WHERE role = 'admin') as admin_count,
+                (SELECT role FROM users WHERE id = ${userId || null}) as user_role
+        `;
+        
+        const { admin_count, user_role } = (result.rows || result)[0];
+        const adminCount = parseInt(admin_count, 10);
+        
+        // If no admins exist, trigger bootstrap
         if (adminCount === 0) {
             console.log('No admins found in the system. Triggering bootstrap.');
             return res.status(200).json({ isAdmin: false, needsBootstrap: true });
         }
-
-        // If admins do exist, check if the current user is one of them.
-        if (!userId) {
-            return res.status(200).json({ isAdmin: false, needsBootstrap: false });
-        }
-
-        const userResult = await sql`SELECT role FROM users WHERE id = ${userId}`;
-        const user = (userResult.rows || userResult)[0];
-
-        if (user && user.role === 'admin') {
-            return res.status(200).json({ isAdmin: true, needsBootstrap: false });
-        } else {
-            return res.status(200).json({ isAdmin: false, needsBootstrap: false });
-        }
+        
+        // Check if current user is admin
+        const isAdmin = user_role === 'admin';
+        return res.status(200).json({ isAdmin, needsBootstrap: false });
 
     } catch (error) {
         console.error("Error in checkAdminStatus:", error);

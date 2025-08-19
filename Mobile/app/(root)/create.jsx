@@ -1,8 +1,9 @@
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Platform, Modal } from "react-native";
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { styles } from "../../assets/styles/create.styles";
 import { COLORS } from "../../constants/colors";
 import { API_URL } from "../../constants/api";
@@ -15,8 +16,10 @@ const CreateInspectionScreen = () => {
 
   // Form state
   const [location, setLocation] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [time, setTime] = useState("");
+  const [date, setDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [time, setTime] = useState(new Date());
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [vehicle, setVehicle] = useState("");
   const [speedometerReading, setSpeedometerReading] = useState("");
   const [trailerNumber, setTrailerNumber] = useState("");
@@ -45,6 +48,66 @@ const CreateInspectionScreen = () => {
     }));
   };
 
+  // 🔧 DATE PICKER FUNCTIONS
+  const onDateChange = (event, selectedDate) => {
+    const currentDate = selectedDate || date;
+    
+    // Close the picker after selection on Android
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    
+    setDate(currentDate);
+  };
+
+  const showDatePickerModal = () => {
+    setShowDatePicker(true);
+  };
+
+  const closeDatePicker = () => {
+    setShowDatePicker(false);
+  };
+
+  // 🔧 TIME PICKER FUNCTIONS
+  const onTimeChange = (event, selectedTime) => {
+    const currentTime = selectedTime || time;
+    
+    // Close the picker after selection on Android
+    if (Platform.OS === 'android') {
+      setShowTimePicker(false);
+    }
+    
+    setTime(currentTime);
+  };
+
+  const showTimePickerModal = () => {
+    setShowTimePicker(true);
+  };
+
+  const closeTimePicker = () => {
+    setShowTimePicker(false);
+  };
+
+  const formatDateForDisplay = (dateObj) => {
+    return dateObj.toLocaleDateString('en-CA'); // Returns YYYY-MM-DD format
+  };
+
+  const formatTimeForDisplay = (timeObj) => {
+    return timeObj.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  };
+
+  const formatTimeForAPI = (timeObj) => {
+    return timeObj.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  };
+
   const handleCreate = async () => {
     try {
       setIsLoading(true);
@@ -58,8 +121,8 @@ const CreateInspectionScreen = () => {
         user_id: user.id,
         user_email: user.emailAddresses?.[0]?.emailAddress || `${user.id}@clerk.user`,
         location: location.trim(),
-        date,
-        time: time.trim(),
+        date: formatDateForDisplay(date), // 🔧 FORMAT DATE FOR API
+        time: formatTimeForAPI(time), // 🔧 FORMAT TIME FOR API
         vehicle: vehicle.trim(),
         speedometer_reading: speedometerReading.trim(),
         defective_items: selectedDefectiveItems,
@@ -136,23 +199,25 @@ const CreateInspectionScreen = () => {
           <View style={styles.rowContainer}>
             <View style={[styles.inputContainer, { flex: 1, marginRight: 10 }]}>
               <Ionicons name="calendar-outline" size={22} color={COLORS.textLight} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Date (YYYY-MM-DD)"
-                placeholderTextColor={COLORS.textLight}
-                value={date}
-                onChangeText={setDate}
-              />
+              <TouchableOpacity 
+                style={styles.datePickerButton} 
+                onPress={showDatePickerModal}
+              >
+                <Text style={[styles.datePickerText, { color: date ? COLORS.text : COLORS.textLight }]}>
+                  {formatDateForDisplay(date)}
+                </Text>
+              </TouchableOpacity>
             </View>
             <View style={[styles.inputContainer, { flex: 1, marginLeft: 10 }]}>
               <Ionicons name="time-outline" size={22} color={COLORS.textLight} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Time"
-                placeholderTextColor={COLORS.textLight}
-                value={time}
-                onChangeText={setTime}
-              />
+              <TouchableOpacity 
+                style={styles.datePickerButton} 
+                onPress={showTimePickerModal}
+              >
+                <Text style={[styles.datePickerText, { color: time ? COLORS.text : COLORS.textLight }]}>
+                  {formatTimeForDisplay(time)}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -358,6 +423,108 @@ const CreateInspectionScreen = () => {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
+      )}
+
+      {/* 🔧 ENHANCED DATE PICKER MODAL */}
+      {showDatePicker && (
+        <Modal
+          transparent={true}
+          animationType="fade"
+          visible={showDatePicker}
+          onRequestClose={closeDatePicker}
+        >
+          <TouchableOpacity 
+            style={styles.datePickerOverlay}
+            activeOpacity={1}
+            onPress={closeDatePicker}
+          >
+            <View style={styles.datePickerContainer}>
+              <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+                <View style={styles.datePickerHeader}>
+                  <Text style={styles.datePickerTitle}>Select Date</Text>
+                  <TouchableOpacity onPress={closeDatePicker}>
+                    <Ionicons name="close" size={24} color={COLORS.white} />
+                  </TouchableOpacity>
+                </View>
+                
+                <View style={styles.datePickerContent}>
+                  <DateTimePicker
+                    testID="dateTimePicker"
+                    value={date}
+                    mode="date"
+                    is24Hour={true}
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={onDateChange}
+                    themeVariant="light"
+                    style={styles.datePickerStyle}
+                  />
+                </View>
+                
+                {Platform.OS === 'ios' && (
+                  <View style={styles.datePickerActions}>
+                    <TouchableOpacity 
+                      style={styles.datePickerActionButton}
+                      onPress={closeDatePicker}
+                    >
+                      <Text style={styles.datePickerButtonText}>Done</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
+
+      {/* 🔧 ENHANCED TIME PICKER MODAL */}
+      {showTimePicker && (
+        <Modal
+          transparent={true}
+          animationType="fade"
+          visible={showTimePicker}
+          onRequestClose={closeTimePicker}
+        >
+          <TouchableOpacity 
+            style={styles.datePickerOverlay}
+            activeOpacity={1}
+            onPress={closeTimePicker}
+          >
+            <View style={styles.datePickerContainer}>
+              <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+                <View style={styles.datePickerHeader}>
+                  <Text style={styles.datePickerTitle}>Select Time</Text>
+                  <TouchableOpacity onPress={closeTimePicker}>
+                    <Ionicons name="close" size={24} color={COLORS.white} />
+                  </TouchableOpacity>
+                </View>
+                
+                <View style={styles.datePickerContent}>
+                  <DateTimePicker
+                    testID="timeTimePicker"
+                    value={time}
+                    mode="time"
+                    is24Hour={false}
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={onTimeChange}
+                    themeVariant="light"
+                    style={styles.datePickerStyle}
+                  />
+                </View>
+                
+                {Platform.OS === 'ios' && (
+                  <View style={styles.datePickerActions}>
+                    <TouchableOpacity 
+                      style={styles.datePickerActionButton}
+                      onPress={closeTimePicker}
+                    >
+                      <Text style={styles.datePickerButtonText}>Done</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
       )}
     </View>
   );

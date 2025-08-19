@@ -12,6 +12,7 @@ export const useAdmin = (userId) => {
   const [lastFetchTime, setLastFetchTime] = useState(0);
   
   const isCurrentlyLoading = useRef(false);
+  const adminDataCache = useRef(null);
 
   const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -20,7 +21,12 @@ export const useAdmin = (userId) => {
     
     try {
       console.log('🔍 Checking admin status for:', userId);
-      const response = await fetch(`${API_URL}/admin/check/${userId}`);
+      const response = await fetch(`${API_URL}/admin/check/${userId}`, {
+        method: 'GET',
+        headers: {
+          'Cache-Control': 'no-cache',
+        }
+      });
       
       if (response.status === 429) {
         console.warn('Admin check rate limited');
@@ -46,105 +52,77 @@ export const useAdmin = (userId) => {
   }, [userId]);
 
 
-  const fetchAllInspections = useCallback(async () => {
+  // OPTIMIZED: Fetch all admin data in parallel
+  const fetchAllAdminData = useCallback(async () => {
     if (!userId) return;
+
     try {
-      console.log('Fetching all inspections for:', userId);
-      await delay(200); // Small delay between requests
+      console.log('📈 Fetching all admin data in parallel...');
       
-      const response = await fetch(`${API_URL}/admin/inspections/${userId}`);
-      
-      if (response.status === 429) {
-        console.warn('Inspections fetch rate limited');
-        throw new Error('Rate limited - please wait');
+      // Start all requests simultaneously
+      const [inspectionsPromise, statsPromise, defectivePromise] = [
+        fetch(`${API_URL}/admin/inspections/${userId}`),
+        fetch(`${API_URL}/admin/stats/${userId}`),
+        fetch(`${API_URL}/admin/defective-items-stats/${userId}`)
+      ];
+
+      // Wait for all to complete
+      const [inspectionsResponse, statsResponse, defectiveResponse] = await Promise.all([
+        inspectionsPromise,
+        statsPromise,
+        defectivePromise
+      ]);
+
+      // Process results
+      if (inspectionsResponse.ok) {
+        const inspectionsData = await inspectionsResponse.json();
+        setAllInspections(Array.isArray(inspectionsData) ? inspectionsData : []);
       }
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Inspections response error:', response.status, errorText);
-        throw new Error(`Failed to fetch inspections`);
+
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json();
+        setStats(statsData);
       }
-      
-      const data = await response.json();
-      if (Array.isArray(data)) {
-        console.log('Fetched inspections count:', data.length);
-        setAllInspections(data);
+
+      if (defectiveResponse.ok) {
+        const defectiveData = await defectiveResponse.json();
+        setDefectiveItemsStats(Array.isArray(defectiveData) ? defectiveData : []);
       }
+
+      // Cache the data with timestamp
+      adminDataCache.current = {
+        timestamp: Date.now(),
+        inspections: allInspections,
+        stats,
+        defectiveItemsStats
+      };
+
     } catch (error) {
-      console.error("Error fetching all inspections:", error);
-      if (!error.message.includes('Rate limited')) {
-        throw error;
-      }
+      console.error("❌ Error fetching admin data:", error);
     }
   }, [userId]);
 
-  const fetchStats = useCallback(async () => {
-    if (!userId) return;
-    try {
-      await delay(400); // Stagger requests
-      
-      const response = await fetch(`${API_URL}/admin/stats/${userId}`);
-      
-      if (response.status === 429) {
-        console.warn('Stats fetch rate limited');
-        return;
-      }
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Stats response error:', response.status, errorText);
-        throw new Error(`Failed to fetch stats`);
-      }
-      
-      const data = await response.json();
-      setStats(data);
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-      if (!error.message.includes('Rate limited')) {
-        throw error;
-      }
+  // OPTIMIZED: Main data loading function with caching
+  const refreshAllData = useCallback(async (forceRefresh = false) => {
+    if (!userId) {
+      console.log('⏸️ No user ID, skipping admin check');
+      return;
     }
-  }, [userId]);
-
-  const fetchDefectiveItemsStats = useCallback(async () => {
-    if (!userId) return;
-    try {
-      await delay(600); // Further stagger requests
-      
-      const response = await fetch(`${API_URL}/admin/defective-items-stats/${userId}`);
-      
-      if (response.status === 429) {
-        console.warn('Defective items stats rate limited');
-        return;
-      }
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Defective items stats response error:', response.status, errorText);
-        throw new Error(`Failed to fetch defective items stats`);
-      }
-      
-      const data = await response.json();
-      if (Array.isArray(data)) {
-        setDefectiveItemsStats(data);
-      }
-    } catch (error) {
-      console.error("Error fetching defective items stats:", error);
-      if (!error.message.includes('Rate limited')) {
-        throw error;
-      }
+    
+    if (isCurrentlyLoading.current && !forceRefresh) {
+      console.log('⏸️ Already loading, skipping...');
+      return;
     }
-  }, [userId]);
 
-  const refreshAllData = useCallback(async () => {
-    if (!userId || isCurrentlyLoading.current) {
-      console.log('Skipping refresh - no userId or already loading');
+    // Check cache first (cache for 30 seconds)
+    const now = Date.now();
+    if (!forceRefresh && adminDataCache.current && (now - adminDataCache.current.timestamp < 30000)) {
+      console.log('💾 Using cached admin data');
       return;
     }
     
     // Prevent excessive refreshes
-    const now = Date.now();
-    if ((now - lastFetchTime) < 5000) { // 5 second minimum between full refreshes
+    if (!forceRefresh && (now - lastFetchTime) < 5000) {
       console.log('Skipping refresh - too soon since last refresh');
       return;
     }
@@ -155,11 +133,8 @@ export const useAdmin = (userId) => {
     try {
       console.log('🔄 Starting admin data refresh...');
       const adminStatus = await checkAdminStatus();
-      if (adminStatus) {
-        // Sequential requests to avoid overwhelming the server
-        await fetchAllInspections();
-        await fetchStats();
-        await fetchDefectiveItemsStats();
+      if (adminStatus && adminStatus.isAdmin) {
+        await fetchAllAdminData();
       }
       console.log('✅ Admin data refresh completed');
     } catch (error) {
@@ -174,11 +149,13 @@ export const useAdmin = (userId) => {
     } finally {
       isCurrentlyLoading.current = false;
     }
-  }, [userId, checkAdminStatus, fetchAllInspections, fetchStats, fetchDefectiveItemsStats, lastFetchTime]);
+  }, [userId, checkAdminStatus, fetchAllAdminData, lastFetchTime]);
 
   const updateInspection = useCallback(async (inspectionId, updateData) => {
-    if (!userId) return;
+    if (!userId) return false;
     try {
+      console.log('Updating inspection:', inspectionId, updateData);
+      
       const response = await fetch(`${API_URL}/admin/inspections/${inspectionId}`, {
         method: "PUT",
         headers: {
@@ -192,7 +169,7 @@ export const useAdmin = (userId) => {
 
       if (response.status === 429) {
         Alert.alert("Rate Limited", "Please wait before trying again.");
-        return;
+        return false;
       }
 
       if (!response.ok) {
@@ -200,18 +177,27 @@ export const useAdmin = (userId) => {
         throw new Error(errorData.error || "Failed to update inspection");
       }
 
-      // Refresh data after update with delay
-      await delay(1000);
-      await refreshAllData();
+      console.log('Inspection updated successfully');
+      // Update local state immediately for better UX
+      setAllInspections(prev => prev.map(inspection => 
+        inspection.id === inspectionId 
+          ? { ...inspection, ...updateData, adminUserId: userId }
+          : inspection
+      ));
+      
+      // Refresh data in background
+      setTimeout(() => refreshAllData(true), 100);
       Alert.alert("Success", "Inspection updated successfully");
+      return true;
     } catch (error) {
       console.error("Error updating inspection:", error);
       Alert.alert("Error", error.message);
+      return false;
     }
   }, [userId, refreshAllData]);
 
   const deleteInspection = useCallback(async (inspectionId) => {
-    if (!userId) return;
+    if (!userId) return false;
     try {
       const response = await fetch(`${API_URL}/admin/inspections/${inspectionId}`, {
         method: "DELETE",
@@ -225,7 +211,7 @@ export const useAdmin = (userId) => {
 
       if (response.status === 429) {
         Alert.alert("Rate Limited", "Please wait before trying again.");
-        return;
+        return false;
       }
 
       if (!response.ok) {
@@ -233,13 +219,17 @@ export const useAdmin = (userId) => {
         throw new Error(errorData.error || "Failed to delete inspection");
       }
 
-      // Refresh data after deletion with delay
-      await delay(1000);
-      await refreshAllData();
+      // Update local state immediately
+      setAllInspections(prev => prev.filter(inspection => inspection.id !== inspectionId));
+      
+      // Refresh stats in background
+      setTimeout(() => refreshAllData(true), 100);
       Alert.alert("Success", "Inspection deleted successfully");
+      return true;
     } catch (error) {
       console.error("Error deleting inspection:", error);
       Alert.alert("Error", error.message);
+      return false;
     }
   }, [userId, refreshAllData]);
 
@@ -260,7 +250,7 @@ export const useAdmin = (userId) => {
     setIsLoading(true);
     
     try {
-      // Always check admin status first
+      // Check admin status first
       const adminStatus = await checkAdminStatus();
       console.log('📊 Admin status result:', adminStatus);
       
@@ -283,41 +273,7 @@ export const useAdmin = (userId) => {
       setIsLoading(false);
       isCurrentlyLoading.current = false;
     }
-  }, [userId, checkAdminStatus]);
-
-  const fetchAllAdminData = useCallback(async () => {
-    try {
-      console.log('📈 Fetching all admin data...');
-      
-      // Fetch inspections
-      const inspectionsResponse = await fetch(`${API_URL}/admin/inspections/${userId}`);
-      if (inspectionsResponse.ok) {
-        const inspectionsData = await inspectionsResponse.json();
-        setAllInspections(Array.isArray(inspectionsData) ? inspectionsData : []);
-      }
-      
-      await delay(200);
-      
-      // Fetch stats
-      const statsResponse = await fetch(`${API_URL}/admin/stats/${userId}`);
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
-        setStats(statsData);
-      }
-      
-      await delay(200);
-      
-      // Fetch defective items stats
-      const defectiveResponse = await fetch(`${API_URL}/admin/defective-items-stats/${userId}`);
-      if (defectiveResponse.ok) {
-        const defectiveData = await defectiveResponse.json();
-        setDefectiveItemsStats(Array.isArray(defectiveData) ? defectiveData : []);
-      }
-      
-    } catch (error) {
-      console.error("❌ Error fetching admin data:", error);
-    }
-  }, [userId]);
+  }, [userId, checkAdminStatus, fetchAllAdminData]);
 
   // FIXED: Effect that runs whenever userId changes (like on login)
   useEffect(() => {

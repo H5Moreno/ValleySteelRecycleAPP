@@ -198,4 +198,32 @@ export const styles = StyleSheet.create({
     color: COLORS.textLight,
     marginLeft: 6,
   },
+
+  // Skeleton Loading Styles
+  skeletonBox: {
+    backgroundColor: '#E1E9EE',
+    borderRadius: 4,
+    opacity: 0.7,
+  },
+  
+  skeletonPulse: {
+    backgroundColor: '#E1E9EE',
+    borderRadius: 4,
+  },
+  
+  skeletonStatCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 120,
+    flex: 1,
+    marginHorizontal: 5,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
 });

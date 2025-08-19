@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "../../constants/colors";
 import { useAdmin } from "../../hooks/useAdmin";
 import PageLoader from "../../components/PageLoader";
+import AdminSkeleton from "../../components/AdminSkeleton";
 import DefectiveItemsChart from "../../components/DefectiveItemsChart";
 import UserManagement from "../../components/UserManagement";
 import { formatDate } from "../../lib/utils";
@@ -33,7 +34,7 @@ export default function AdminPage() {
     setRefreshing(true);
     try {
       console.log('🔄 Manual refresh triggered');
-      await loadAdminData();
+      await loadAdminData(true); // Force refresh
     } catch (error) {
       console.error('Error refreshing admin data:', error);
     } finally {
@@ -68,7 +69,7 @@ export default function AdminPage() {
     return "Satisfactory";
   };
 
-  if (isLoading) return <PageLoader />;
+  if (isLoading) return <AdminSkeleton />;
 
   // Handle bootstrap scenario
   if (needsBootstrap) {
