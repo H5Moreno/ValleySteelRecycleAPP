@@ -56,6 +56,7 @@ const CreateInspectionScreen = () => {
 
       const inspectionData = {
         user_id: user.id,
+        user_email: user.emailAddresses?.[0]?.emailAddress || `${user.id}@clerk.user`,
         location: location.trim(),
         date,
         time: time.trim(),

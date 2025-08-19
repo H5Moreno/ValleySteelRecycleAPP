@@ -297,4 +297,20 @@ export const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
   },
+   bootstrapButton: {
+    backgroundColor: COLORS.background,
+    borderWidth: 2,
+    borderColor: COLORS.expense,
+    borderRadius: 8,
+    padding: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  bootstrapText: {
+    color: COLORS.expense,
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
 });

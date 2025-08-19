@@ -2,6 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity, Alert } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { useUser } from "@clerk/clerk-expo";
 import { styles } from "../../../assets/styles/view.styles";
 import { COLORS } from "../../../constants/colors";
 import { DEFECTIVE_ITEMS, TRUCK_TRAILER_ITEMS } from "../../../constants/inspectionItems";
@@ -12,6 +13,7 @@ import { formatDate } from "../../../lib/utils";
 export default function ViewInspection() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { user } = useUser();
   const [inspection, setInspection] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -20,7 +22,14 @@ export default function ViewInspection() {
     const fetchInspection = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch(`${API_URL}/inspections/single/${id}`);
+        
+        // Include userId in query params for auto-user creation
+        const url = new URL(`${API_URL}/inspections/single/${id}`);
+        if (user?.id) {
+          url.searchParams.append('userId', user.id);
+        }
+        
+        const response = await fetch(url.toString());
         
         if (!response.ok) {
           throw new Error("Inspection not found");
@@ -40,7 +49,7 @@ export default function ViewInspection() {
     if (id) {
       fetchInspection();
     }
-  }, [id]);
+  }, [id, user?.id]);
 
   // Helper function to get item name with asterisk if needed
   const getItemDisplayName = (itemId, itemsArray) => {

@@ -9,6 +9,7 @@ import PageLoader from "../../components/PageLoader";
 import DefectiveItemsChart from "../../components/DefectiveItemsChart";
 import UserManagement from "../../components/UserManagement";
 import { formatDate } from "../../lib/utils";
+import AdminBootstrap from "../../components/AdminBootstrap";
 
 export default function AdminPage() {
   const { user } = useUser();
@@ -19,6 +20,7 @@ export default function AdminPage() {
 
   const { 
     isAdmin, 
+    needsBootstrap,  // ADD THIS LINE - it was missing!
     allInspections, 
     stats, 
     defectiveItemsStats,
@@ -56,8 +58,8 @@ export default function AdminPage() {
 
   const getStatusColor = (inspection) => {
     if (!inspection.condition_satisfactory) return COLORS.expense;
-    if (inspection.defects_need_correction) return "#FF9500"; // Orange for needs attention
-    return COLORS.income; // Green for satisfactory
+    if (inspection.defects_need_correction) return "#FF9500";
+    return COLORS.income;
   };
 
   const getStatusText = (inspection) => {
@@ -67,6 +69,13 @@ export default function AdminPage() {
   };
 
   if (isLoading) return <PageLoader />;
+
+  // Handle bootstrap scenario
+  if (needsBootstrap) {
+    return <AdminBootstrap onSuccess={() => {
+      loadAdminData();
+    }} />;
+  }
 
   if (!isAdmin) {
     return (

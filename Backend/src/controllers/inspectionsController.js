@@ -5,6 +5,19 @@ export async function getInspectionsByUserId(req, res) {
         const { userId } = req.params;
         console.log('Fetching inspections for user:', userId);
         
+        // 🔧 AUTO-CREATE USER IN DATABASE IF NOT EXISTS
+        try {
+            console.log('🔄 Ensuring user exists in database...');
+            await sql`
+                INSERT INTO users (id, email, role) 
+                VALUES (${userId}, ${userId + '@clerk.user'}, 'user')
+                ON CONFLICT (id) DO NOTHING
+            `;
+            console.log('✅ User ensured in database');
+        } catch (userError) {
+            console.log('⚠️ User creation failed (may already exist):', userError.message);
+        }
+        
         const result = await sql`
             SELECT * FROM vehicle_inspections WHERE user_id = ${userId} ORDER BY created_at DESC
         `;
@@ -24,6 +37,7 @@ export async function createInspection(req, res){
     try {
         const { 
             user_id, 
+            user_email, // Add this field
             location, 
             date,
             time,
@@ -42,6 +56,19 @@ export async function createInspection(req, res){
 
         if(!user_id || !vehicle) {
             return res.status(400).json({ error: "User ID and vehicle are required" });
+        }
+
+        // 🔧 AUTO-CREATE USER IN DATABASE IF NOT EXISTS
+        try {
+            console.log('🔄 Ensuring user exists in database...');
+            await sql`
+                INSERT INTO users (id, email, role) 
+                VALUES (${user_id}, ${user_email || user_id + '@clerk.user'}, 'user')
+                ON CONFLICT (id) DO NOTHING
+            `;
+            console.log('✅ User ensured in database');
+        } catch (userError) {
+            console.log('⚠️ User creation failed (may already exist):', userError.message);
         }
 
         const inspection = await sql`
@@ -97,10 +124,26 @@ export async function getSingleInspection(req, res) {
     try {
         console.log('=== GET SINGLE INSPECTION ===');
         const { id } = req.params;
-        console.log('Fetching inspection ID:', id);
+        const { userId } = req.query; // Get userId from query params
+        console.log('Fetching inspection ID:', id, 'for user:', userId);
         
         if (!id) {
             return res.status(400).json({ error: "Inspection ID is required" });
+        }
+        
+        // 🔧 AUTO-CREATE USER IN DATABASE IF NOT EXISTS
+        if (userId) {
+            try {
+                console.log('🔄 Ensuring user exists in database...');
+                await sql`
+                    INSERT INTO users (id, email, role) 
+                    VALUES (${userId}, ${userId + '@clerk.user'}, 'user')
+                    ON CONFLICT (id) DO NOTHING
+                `;
+                console.log('✅ User ensured in database');
+            } catch (userError) {
+                console.log('⚠️ User creation failed (may already exist):', userError.message);
+            }
         }
         
         const result = await sql`

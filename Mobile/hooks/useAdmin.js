@@ -4,43 +4,47 @@ import { API_URL } from "../constants/api";
 
 export const useAdmin = (userId) => {
   const [isAdmin, setIsAdmin] = useState(false);
+  const [needsBootstrap, setNeedsBootstrap] = useState(false);
   const [allInspections, setAllInspections] = useState([]);
   const [stats, setStats] = useState(null);
   const [defectiveItemsStats, setDefectiveItemsStats] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastFetchTime, setLastFetchTime] = useState(0);
   
-  // Add ref to track if initial load has been done
-  const hasInitiallyLoaded = useRef(false);
   const isCurrentlyLoading = useRef(false);
 
-  // Add delay utility
   const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
   const checkAdminStatus = useCallback(async () => {
-    if (!userId) return false;
+    if (!userId) return { isAdmin: false, needsBootstrap: false };
+    
     try {
-      console.log('Checking admin status for:', userId);
+      console.log('🔍 Checking admin status for:', userId);
       const response = await fetch(`${API_URL}/admin/check/${userId}`);
       
       if (response.status === 429) {
         console.warn('Admin check rate limited');
-        return false;
+        return { isAdmin: false, needsBootstrap: false };
       }
       
       if (!response.ok) {
         console.error('Admin check response not OK:', response.status);
-        return false;
+        return { isAdmin: false, needsBootstrap: false };
       }
       
       const data = await response.json();
-      setIsAdmin(data.isAdmin);
-      return data.isAdmin;
+      console.log('🔍 Admin status response:', data);
+      return { 
+        isAdmin: data.isAdmin, 
+        needsBootstrap: data.needsBootstrap || false 
+      };
+      
     } catch (error) {
       console.error("Error checking admin status:", error);
-      return false;
+      return { isAdmin: false, needsBootstrap: false };
     }
   }, [userId]);
+
 
   const fetchAllInspections = useCallback(async () => {
     if (!userId) return;
@@ -240,39 +244,100 @@ export const useAdmin = (userId) => {
   }, [userId, refreshAllData]);
 
   const loadAdminData = useCallback(async () => {
-    if (!userId || hasInitiallyLoaded.current) {
-      console.log('Skipping initial load - no userId or already loaded');
+    if (!userId) {
+      console.log('⏸️ No user ID, skipping admin check');
+      setIsLoading(false);
+      return;
+    }
+    
+    if (isCurrentlyLoading.current) {
+      console.log('⏸️ Already loading, skipping...');
       return;
     }
 
-    console.log('🚀 Starting initial admin data load...');
-    hasInitiallyLoaded.current = true;
+    console.log('🚀 Loading admin data for user:', userId);
+    isCurrentlyLoading.current = true;
     setIsLoading(true);
     
     try {
-      await refreshAllData();
+      // Always check admin status first
+      const adminStatus = await checkAdminStatus();
+      console.log('📊 Admin status result:', adminStatus);
+      
+      setIsAdmin(adminStatus.isAdmin);
+      setNeedsBootstrap(adminStatus.needsBootstrap);
+      
+      // Only fetch admin data if user is actually an admin
+      if (adminStatus.isAdmin) {
+        console.log('👑 User is admin, fetching admin data...');
+        await fetchAllAdminData();
+      } else if (adminStatus.needsBootstrap) {
+        console.log('🔐 Bootstrap needed - no admins exist');
+      } else {
+        console.log('👤 User is not admin');
+      }
+      
     } catch (error) {
-      console.error("Error loading admin data:", error);
-      hasInitiallyLoaded.current = false; // Reset on error
+      console.error("❌ Error loading admin data:", error);
     } finally {
       setIsLoading(false);
+      isCurrentlyLoading.current = false;
     }
-  }, [refreshAllData, userId]);
+  }, [userId, checkAdminStatus]);
 
-  // FIXED: Only load once on mount with proper dependency control
-  useEffect(() => {
-    if (userId && !hasInitiallyLoaded.current) {
-      loadAdminData();
+  const fetchAllAdminData = useCallback(async () => {
+    try {
+      console.log('📈 Fetching all admin data...');
+      
+      // Fetch inspections
+      const inspectionsResponse = await fetch(`${API_URL}/admin/inspections/${userId}`);
+      if (inspectionsResponse.ok) {
+        const inspectionsData = await inspectionsResponse.json();
+        setAllInspections(Array.isArray(inspectionsData) ? inspectionsData : []);
+      }
+      
+      await delay(200);
+      
+      // Fetch stats
+      const statsResponse = await fetch(`${API_URL}/admin/stats/${userId}`);
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json();
+        setStats(statsData);
+      }
+      
+      await delay(200);
+      
+      // Fetch defective items stats
+      const defectiveResponse = await fetch(`${API_URL}/admin/defective-items-stats/${userId}`);
+      if (defectiveResponse.ok) {
+        const defectiveData = await defectiveResponse.json();
+        setDefectiveItemsStats(Array.isArray(defectiveData) ? defectiveData : []);
+      }
+      
+    } catch (error) {
+      console.error("❌ Error fetching admin data:", error);
     }
-  }, [userId, loadAdminData]);
+  }, [userId]);
+
+  // FIXED: Effect that runs whenever userId changes (like on login)
+  useEffect(() => {
+    console.log('🔄 useEffect triggered, userId:', userId);
+    loadAdminData();
+  }, [userId]); // Only depend on userId
+
+  useEffect(() => {
+    // This effect now correctly triggers whenever the userId changes (e.g., on login).
+    loadAdminData();
+  }, [userId]); // The dependency is just on userId.
 
   return { 
     isAdmin, 
+    needsBootstrap,
     allInspections, 
     stats, 
     defectiveItemsStats,
     isLoading, 
-    loadAdminData: refreshAllData, // This is for manual refresh only
+    loadAdminData: refreshAllData,
     updateInspection, 
     deleteInspection
   };

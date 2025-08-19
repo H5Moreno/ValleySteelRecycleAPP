@@ -9,10 +9,15 @@ import {
     getAdminSingleInspection,
     getAllUsers,          
     updateUserRole,       
-    promoteUserToAdmin    
+    promoteUserToAdmin,
+    //debugUserSearch,
+    bootstrapFirstAdmin    
 } from "../controllers/adminController.js";
 
 const router = express.Router();
+
+// BOOTSTRAP ROUTE - Only works when no admins exist
+router.post("/bootstrap-first-admin", bootstrapFirstAdmin);
 
 // Existing routes
 router.get("/check/:userId", checkAdminStatus);
@@ -23,9 +28,10 @@ router.get("/stats/:userId", getInspectionStats);
 router.get("/defective-items-stats/:userId", getDefectiveItemsStats);
 router.post("/single-inspection/:id", getAdminSingleInspection);
 
-// New user management routes
-router.get("/users/:userId", getAllUsers);                    // Get all users
-router.put("/users/:userId/role", updateUserRole);           // Update user role
-router.post("/promote-admin", promoteUserToAdmin);           // Promote user to admin by email
+// User management routes
+router.get("/users/:userId", getAllUsers);                    
+router.put("/users/:userId/role", updateUserRole);           
+router.post("/promote-admin", promoteUserToAdmin);           
+//router.post("/debug-user-search", debugUserSearch);          
 
 export default router;
