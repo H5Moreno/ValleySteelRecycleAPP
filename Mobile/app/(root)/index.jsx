@@ -18,9 +18,12 @@ export default function Page() {
   const { user } = useUser();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
-  const { isAdmin, needsBootstrap } = useAdmin(user?.id); // ADD needsBootstrap here
+  const { isAdmin, needsBootstrap } = useAdmin(user?.id, user?.emailAddresses?.[0]?.emailAddress); // ADD needsBootstrap here
 
-  const { inspections, isLoading, loadData, deleteInspection } = useInspections(user?.id);
+  const { inspections, isLoading, loadData, deleteInspection } = useInspections(
+    user?.id, 
+    user?.emailAddresses?.[0]?.emailAddress
+  );
   
   const onRefresh = async () => {
     setRefreshing(true);

@@ -1,5 +1,5 @@
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Platform, Modal } from "react-native";
-import { useState } from "react";
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Platform, Modal, Keyboard, KeyboardAvoidingView } from "react-native";
+import { useState, useRef } from "react";
 import { useRouter } from "expo-router";
 import { useUser } from "@clerk/clerk-expo";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,6 +13,11 @@ const CreateInspectionScreen = () => {
   const router = useRouter();
   const { user } = useUser();
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Create refs for ScrollView and signature inputs
+  const scrollViewRef = useRef(null);
+  const driverSignatureRef = useRef(null);
+  const mechanicSignatureRef = useRef(null);
 
   // Form state
   const [location, setLocation] = useState("");
@@ -46,6 +51,30 @@ const CreateInspectionScreen = () => {
       ...prev,
       [itemId]: !prev[itemId]
     }));
+  };
+
+  // 🔧 KEYBOARD HANDLING FUNCTIONS
+  const scrollToInput = (inputRef) => {
+    setTimeout(() => {
+      inputRef.current?.measureLayout(
+        scrollViewRef.current,
+        (x, y, width, height) => {
+          scrollViewRef.current?.scrollTo({
+            y: y + height + 50, // Add extra padding
+            animated: true,
+          });
+        },
+        () => {}
+      );
+    }, 100);
+  };
+
+  const handleDriverSignatureFocus = () => {
+    scrollToInput(driverSignatureRef);
+  };
+
+  const handleMechanicSignatureFocus = () => {
+    scrollToInput(mechanicSignatureRef);
   };
 
   // 🔧 DATE PICKER FUNCTIONS
@@ -161,7 +190,11 @@ const CreateInspectionScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
       {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
@@ -178,7 +211,13 @@ const CreateInspectionScreen = () => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        ref={scrollViewRef}
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: 100 }}
+      >
         <View style={styles.card}>
           {/* BASIC INFO */}
           <Text style={styles.sectionTitle}>
@@ -373,11 +412,15 @@ const CreateInspectionScreen = () => {
           <View style={styles.inputContainer}>
             <Ionicons name="person-outline" size={22} color={COLORS.textLight} style={styles.inputIcon} />
             <TextInput
+              ref={driverSignatureRef}
               style={styles.input}
               placeholder="Driver's Signature"
               placeholderTextColor={COLORS.textLight}
               value={driverSignature}
               onChangeText={setDriverSignature}
+              onFocus={handleDriverSignatureFocus}
+              returnKeyType="next"
+              onSubmitEditing={() => mechanicSignatureRef.current?.focus()}
             />
           </View>
 
@@ -409,11 +452,15 @@ const CreateInspectionScreen = () => {
           <View style={styles.inputContainer}>
             <Ionicons name="construct-outline" size={22} color={COLORS.textLight} style={styles.inputIcon} />
             <TextInput
+              ref={mechanicSignatureRef}
               style={styles.input}
               placeholder="Mechanic's Signature"
               placeholderTextColor={COLORS.textLight}
               value={mechanicSignature}
               onChangeText={setMechanicSignature}
+              onFocus={handleMechanicSignatureFocus}
+              returnKeyType="done"
+              onSubmitEditing={Keyboard.dismiss}
             />
           </View>
         </View>
@@ -526,7 +573,7 @@ const CreateInspectionScreen = () => {
           </TouchableOpacity>
         </Modal>
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 

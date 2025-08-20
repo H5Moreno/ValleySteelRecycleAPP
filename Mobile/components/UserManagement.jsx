@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Alert, TextInput, Modal, RefreshControl, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useUser } from '@clerk/clerk-expo';
 import { COLORS } from '../constants/colors';
 import { API_URL } from '../constants/api';
 
 const UserManagement = ({ adminUserId }) => {
+  const { user } = useUser(); // Get current user info to access email
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -128,41 +130,198 @@ const UserManagement = ({ adminUserId }) => {
     }
   };
 
-  const renderUser = ({ item }) => (
-    <View style={styles.userItem}>
-      <View style={styles.userInfo}>
-        <View style={styles.userHeader}>
-          <Ionicons 
-            name={item.role === 'admin' ? 'shield-checkmark' : 'person'} 
-            size={16} 
-            color={item.role === 'admin' ? COLORS.primary : COLORS.textLight} 
-            style={styles.userIcon}
-          />
-          <Text style={styles.userEmail}>{item.email || item.id}</Text>
-        </View>
-        <Text style={styles.userRole}>Role: {item.role}</Text>
-        <Text style={styles.userDate}>
-          Joined: {new Date(item.created_at).toLocaleDateString()}
-        </Text>
-        {item.inspection_count !== undefined && (
-          <Text style={styles.userInspections}>
-            📊 {item.inspection_count} inspections
+  const revealUserEmail = (userItem) => {
+    const { id, email, role } = userItem;
+    
+    // Determine what to show
+    let displayEmail = email || 'No email available';
+    let isTemporary = email && email.includes('@clerk.user');
+    
+    if (isTemporary) {
+      displayEmail = `Temporary: ${email}`;
+    }
+    
+    const userInfo = `User ID: ${id}\nEmail: ${displayEmail}\nRole: ${role}`;
+    
+    Alert.alert(
+      'User Information',
+      userInfo,
+      [
+        { text: 'OK' },
+        ...(isTemporary && id === user?.id && user?.emailAddresses?.[0]?.emailAddress ? [{
+          text: 'Update My Email',
+          onPress: () => updateCurrentUserEmail()
+        }] : [])
+      ]
+    );
+  };
+
+  const updateCurrentUserEmail = async () => {
+    try {
+      const userUpdates = [{
+        userId: user.id,
+        newEmail: user.emailAddresses[0].emailAddress
+      }];
+
+      const response = await fetch(`${API_URL}/admin/update-user-emails`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          adminUserId,
+          userUpdates
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        Alert.alert('Success', 'Your email address has been updated!');
+        fetchUsers(); // Refresh the list
+      } else {
+        Alert.alert('Error', result.error || 'Failed to update email address');
+      }
+    } catch (error) {
+      console.error('Error updating email:', error);
+      Alert.alert('Error', 'Network error while updating email address');
+    }
+  };
+
+  const updateFakeEmails = async () => {
+    // Find users with fake @clerk.user emails
+    const usersWithFakeEmails = users.filter(u => u.email && u.email.includes('@clerk.user'));
+    
+    if (usersWithFakeEmails.length === 0) {
+      Alert.alert('Info', 'No users found with fake email addresses. All users appear to have real email addresses.');
+      return;
+    }
+
+    Alert.alert(
+      'Update Email Addresses',
+      `Found ${usersWithFakeEmails.length} users with temporary email addresses. Do you want to update them with real email addresses?\n\nNote: This will only work for users who are currently logged in and have provided their real email addresses to the system.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Update', 
+          onPress: async () => {
+            try {
+              // For now, we can only update the current admin user's email
+              const currentUserUpdate = usersWithFakeEmails.find(u => u.id === user?.id);
+              
+              if (currentUserUpdate && user?.emailAddresses?.[0]?.emailAddress) {
+                const userUpdates = [{
+                  userId: user.id,
+                  newEmail: user.emailAddresses[0].emailAddress
+                }];
+
+                const response = await fetch(`${API_URL}/admin/update-user-emails`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    adminUserId,
+                    userUpdates
+                  }),
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                  Alert.alert('Success', result.message || 'Email addresses updated successfully');
+                  fetchUsers(); // Refresh the list
+                } else {
+                  Alert.alert('Error', result.error || 'Failed to update email addresses');
+                }
+              } else {
+                Alert.alert('Info', 'Could not update email addresses. This feature currently only works for the logged-in admin user.');
+              }
+            } catch (error) {
+              console.error('Error updating fake emails:', error);
+              Alert.alert('Error', 'Network error while updating email addresses');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const renderUser = ({ item }) => {
+    const hasTemporaryEmail = item.email && item.email.includes('@clerk.user');
+    const hasRealEmail = item.email && !hasTemporaryEmail;
+    
+    let displayText, textStyle, iconName, iconColor;
+    
+    if (hasRealEmail) {
+      displayText = item.email;
+      textStyle = styles.userEmail;
+      iconName = "checkmark-circle-outline";
+      iconColor = COLORS.income;
+    } else if (hasTemporaryEmail) {
+      displayText = "Tap to view user details";
+      textStyle = [styles.userEmail, styles.temporaryEmailText];
+      iconName = "information-circle-outline";
+      iconColor = COLORS.secondary;
+    } else {
+      displayText = item.id;
+      textStyle = [styles.userEmail, styles.noEmailText];
+      iconName = "help-circle-outline";
+      iconColor = COLORS.textLight;
+    }
+    
+    return (
+      <View style={styles.userItem}>
+        <View style={styles.userInfo}>
+          <View style={styles.userHeader}>
+            <Ionicons 
+              name={item.role === 'admin' ? 'shield-checkmark' : 'person'} 
+              size={16} 
+              color={item.role === 'admin' ? COLORS.primary : COLORS.textLight} 
+              style={styles.userIcon}
+            />
+            <TouchableOpacity 
+              style={[
+                styles.emailContainer,
+                hasTemporaryEmail && styles.clickableEmailContainer
+              ]}
+              onPress={() => revealUserEmail(item)}
+            >
+              <Text style={textStyle}>
+                {displayText}
+              </Text>
+              <Ionicons 
+                name={iconName} 
+                size={16} 
+                color={iconColor} 
+                style={styles.infoIcon}
+              />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.userRole}>Role: {item.role}</Text>
+          <Text style={styles.userDate}>
+            Joined: {new Date(item.created_at).toLocaleDateString()}
           </Text>
-        )}
+          {item.inspection_count !== undefined && (
+            <Text style={styles.userInspections}>
+              📊 {item.inspection_count} inspections
+            </Text>
+          )}
+        </View>
+        <TouchableOpacity
+          style={[
+            styles.roleButton,
+            { backgroundColor: item.role === 'admin' ? COLORS.expense : COLORS.primary }
+          ]}
+          onPress={() => handleRoleChange(item.id, item.role, item.email)}
+        >
+          <Text style={styles.roleButtonText}>
+            {item.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
+          </Text>
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity
-        style={[
-          styles.roleButton,
-          { backgroundColor: item.role === 'admin' ? COLORS.expense : COLORS.primary }
-        ]}
-        onPress={() => handleRoleChange(item.id, item.role, item.email)}
-      >
-        <Text style={styles.roleButtonText}>
-          {item.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   if (loading) {
     return (
@@ -177,13 +336,21 @@ const UserManagement = ({ adminUserId }) => {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>User Management</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setPromoteModalVisible(true)}
-        >
-          <Ionicons name="person-add" size={24} color={COLORS.white} />
-          <Text style={styles.addButtonText}>Promote User</Text>
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={styles.updateEmailsButton}
+            onPress={updateFakeEmails}
+          >
+            <Ionicons name="mail" size={20} color={COLORS.secondary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => setPromoteModalVisible(true)}
+          >
+            <Ionicons name="person-add" size={24} color={COLORS.white} />
+            <Text style={styles.addButtonText}>Promote User</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <FlatList
@@ -294,10 +461,22 @@ const styles = {
     padding: 16,
     backgroundColor: COLORS.background,
   },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
     color: COLORS.text,
+  },
+  updateEmailsButton: {
+    padding: 8,
+    backgroundColor: COLORS.white,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.secondary,
   },
   addButton: {
     flexDirection: 'row',
@@ -331,11 +510,38 @@ const styles = {
   userIcon: {
     marginRight: 8,
   },
+  emailContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  clickableEmailContainer: {
+    borderColor: COLORS.secondary,
+    borderStyle: 'dashed',
+  },
   userEmail: {
     fontSize: 16,
     fontWeight: '500',
     color: COLORS.text,
     flex: 1,
+  },
+  temporaryEmailText: {
+    color: COLORS.secondary,
+    fontStyle: 'italic',
+    fontSize: 14,
+  },
+  noEmailText: {
+    color: COLORS.textLight,
+    fontStyle: 'italic',
+  },
+  infoIcon: {
+    marginLeft: 6,
   },
   userRole: {
     fontSize: 14,

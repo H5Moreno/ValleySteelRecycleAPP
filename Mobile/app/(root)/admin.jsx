@@ -28,7 +28,7 @@ export default function AdminPage() {
     isLoading, 
     loadAdminData,
     deleteInspection 
-  } = useAdmin(user?.id);
+  } = useAdmin(user?.id, user?.emailAddresses?.[0]?.emailAddress);
 
   const onRefresh = async () => {
     setRefreshing(true);

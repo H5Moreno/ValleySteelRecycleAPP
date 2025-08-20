@@ -625,6 +625,69 @@ export async function getInspectionStats(req, res) {
     }
 }
 
+export async function updateUserEmailsFromClerk(req, res) {
+    try {
+        const { adminUserId, userUpdates } = req.body;
+        
+        console.log('=== UPDATE USER EMAILS FROM CLERK ===');
+        console.log('Admin user:', adminUserId);
+        console.log('User updates:', userUpdates);
+        
+        if (!adminUserId || !Array.isArray(userUpdates)) {
+            return res.status(400).json({ error: "Missing admin user ID or user updates array" });
+        }
+        
+        // Verify admin status
+        const adminCheck = await sql`SELECT role FROM users WHERE id = ${adminUserId}`;
+        const adminResult = adminCheck.rows || adminCheck;
+        if (!adminResult || adminResult.length === 0 || adminResult[0]?.role !== 'admin') {
+            return res.status(403).json({ error: "Access denied. Admin privileges required." });
+        }
+        
+        let updatedCount = 0;
+        const errors = [];
+        
+        // Update each user's email
+        for (const update of userUpdates) {
+            const { userId, newEmail } = update;
+            if (!userId || !newEmail) {
+                errors.push(`Invalid update data: ${JSON.stringify(update)}`);
+                continue;
+            }
+            
+            try {
+                const result = await sql`
+                    UPDATE users 
+                    SET email = ${newEmail}
+                    WHERE id = ${userId} AND email LIKE '%@clerk.user'
+                    RETURNING id, email
+                `;
+                
+                const updateResult = result.rows || result;
+                if (updateResult && updateResult.length > 0) {
+                    updatedCount++;
+                    console.log(`✅ Updated user ${userId} email to: ${newEmail}`);
+                } else {
+                    console.log(`⚠️ No update for user ${userId} (email not fake or user not found)`);
+                }
+            } catch (error) {
+                errors.push(`Failed to update user ${userId}: ${error.message}`);
+                console.error(`❌ Error updating user ${userId}:`, error);
+            }
+        }
+        
+        res.status(200).json({ 
+            message: `Successfully updated ${updatedCount} user emails`,
+            updatedCount,
+            errors: errors.length > 0 ? errors : null
+        });
+        
+    } catch (error) {
+        console.error("❌ Error updating user emails:", error);
+        res.status(500).json({ error: "Internal server error: " + error.message });
+    }
+}
+
 export async function getAdminSingleInspection(req, res) {
     try {
         const { id } = req.params;

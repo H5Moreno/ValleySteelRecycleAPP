@@ -23,10 +23,13 @@ export default function ViewInspection() {
       try {
         setIsLoading(true);
         
-        // Include userId in query params for auto-user creation
+        // Include userId and userEmail in query params for auto-user creation
         const url = new URL(`${API_URL}/inspections/single/${id}`);
         if (user?.id) {
           url.searchParams.append('userId', user.id);
+        }
+        if (user?.emailAddresses?.[0]?.emailAddress) {
+          url.searchParams.append('userEmail', user.emailAddresses[0].emailAddress);
         }
         
         const response = await fetch(url.toString());

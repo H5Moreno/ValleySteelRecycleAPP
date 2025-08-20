@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Alert } from "react-native";
 import { API_URL } from "../constants/api";
 
-export const useAdmin = (userId) => {
+export const useAdmin = (userId, userEmail) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [needsBootstrap, setNeedsBootstrap] = useState(false);
   const [allInspections, setAllInspections] = useState([]);

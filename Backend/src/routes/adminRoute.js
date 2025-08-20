@@ -10,6 +10,7 @@ import {
     getAllUsers,          
     updateUserRole,       
     promoteUserToAdmin,
+    updateUserEmailsFromClerk,
     //debugUserSearch,
     bootstrapFirstAdmin    
 } from "../controllers/adminController.js";
@@ -32,6 +33,7 @@ router.post("/single-inspection/:id", getAdminSingleInspection);
 router.get("/users/:userId", getAllUsers);                    
 router.put("/users/:userId/role", updateUserRole);           
 router.post("/promote-admin", promoteUserToAdmin);           
+router.post("/update-user-emails", updateUserEmailsFromClerk);
 //router.post("/debug-user-search", debugUserSearch);          
 
 export default router;

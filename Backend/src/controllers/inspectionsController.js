@@ -3,17 +3,25 @@ import { sql } from "../config/db.js";
 export async function getInspectionsByUserId(req, res) {
     try {
         const { userId } = req.params;
+        const { userEmail } = req.query; // Get email from query parameters
         console.log('Fetching inspections for user:', userId);
+        console.log('User email provided:', userEmail);
         
         // 🔧 AUTO-CREATE USER IN DATABASE IF NOT EXISTS
         try {
             console.log('🔄 Ensuring user exists in database...');
+            const actualEmail = userEmail || (userId + '@clerk.user');
             await sql`
                 INSERT INTO users (id, email, role) 
-                VALUES (${userId}, ${userId + '@clerk.user'}, 'user')
-                ON CONFLICT (id) DO NOTHING
+                VALUES (${userId}, ${actualEmail}, 'user')
+                ON CONFLICT (id) DO UPDATE SET 
+                    email = CASE 
+                        WHEN users.email LIKE '%@clerk.user' AND ${userEmail} IS NOT NULL 
+                        THEN ${actualEmail}
+                        ELSE users.email 
+                    END
             `;
-            console.log('✅ User ensured in database');
+            console.log('✅ User ensured in database with email:', actualEmail);
         } catch (userError) {
             console.log('⚠️ User creation failed (may already exist):', userError.message);
         }
@@ -124,8 +132,9 @@ export async function getSingleInspection(req, res) {
     try {
         console.log('=== GET SINGLE INSPECTION ===');
         const { id } = req.params;
-        const { userId } = req.query; // Get userId from query params
+        const { userId, userEmail } = req.query; // Get userId and userEmail from query params
         console.log('Fetching inspection ID:', id, 'for user:', userId);
+        console.log('User email provided:', userEmail);
         
         if (!id) {
             return res.status(400).json({ error: "Inspection ID is required" });
@@ -135,12 +144,18 @@ export async function getSingleInspection(req, res) {
         if (userId) {
             try {
                 console.log('🔄 Ensuring user exists in database...');
+                const actualEmail = userEmail || (userId + '@clerk.user');
                 await sql`
                     INSERT INTO users (id, email, role) 
-                    VALUES (${userId}, ${userId + '@clerk.user'}, 'user')
-                    ON CONFLICT (id) DO NOTHING
+                    VALUES (${userId}, ${actualEmail}, 'user')
+                    ON CONFLICT (id) DO UPDATE SET 
+                        email = CASE 
+                            WHEN users.email LIKE '%@clerk.user' AND ${userEmail} IS NOT NULL 
+                            THEN ${actualEmail}
+                            ELSE users.email 
+                        END
                 `;
-                console.log('✅ User ensured in database');
+                console.log('✅ User ensured in database with email:', actualEmail);
             } catch (userError) {
                 console.log('⚠️ User creation failed (may already exist):', userError.message);
             }
