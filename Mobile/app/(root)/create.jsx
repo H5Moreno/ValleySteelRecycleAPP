@@ -8,11 +8,15 @@ import { styles } from "../../assets/styles/create.styles";
 import { COLORS } from "../../constants/colors";
 import { API_URL } from "../../constants/api";
 import { DEFECTIVE_ITEMS, TRUCK_TRAILER_ITEMS } from "../../constants/inspectionItems";
+import { useAdmin } from "../../hooks/useAdmin";
 
 const CreateInspectionScreen = () => {
   const router = useRouter();
   const { user } = useUser();
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Check if user is admin/mechanic
+  const { isAdmin } = useAdmin(user?.id, user?.emailAddresses?.[0]?.emailAddress);
   
   // Create refs for ScrollView and signature inputs
   const scrollViewRef = useRef(null);
@@ -162,7 +166,8 @@ const CreateInspectionScreen = () => {
         driver_signature: driverSignature.trim(),
         defects_corrected: defectsCorrected,
         defects_need_correction: defectsNeedCorrection,
-        mechanic_signature: mechanicSignature.trim()
+        // Only include mechanic signature if user is admin/mechanic
+        mechanic_signature: isAdmin ? mechanicSignature.trim() : ""
       };
 
       const response = await fetch(`${API_URL}/inspections`, {
@@ -419,8 +424,14 @@ const CreateInspectionScreen = () => {
               value={driverSignature}
               onChangeText={setDriverSignature}
               onFocus={handleDriverSignatureFocus}
-              returnKeyType="next"
-              onSubmitEditing={() => mechanicSignatureRef.current?.focus()}
+              returnKeyType={isAdmin ? "next" : "done"}
+              onSubmitEditing={() => {
+                if (isAdmin) {
+                  mechanicSignatureRef.current?.focus();
+                } else {
+                  Keyboard.dismiss();
+                }
+              }}
             />
           </View>
 
@@ -449,20 +460,33 @@ const CreateInspectionScreen = () => {
             <Text style={styles.checkboxText}>Above defects need not be corrected for safe operation of vehicle</Text>
           </TouchableOpacity>
 
-          <View style={styles.inputContainer}>
-            <Ionicons name="construct-outline" size={22} color={COLORS.textLight} style={styles.inputIcon} />
-            <TextInput
-              ref={mechanicSignatureRef}
-              style={styles.input}
-              placeholder="Mechanic's Signature"
-              placeholderTextColor={COLORS.textLight}
-              value={mechanicSignature}
-              onChangeText={setMechanicSignature}
-              onFocus={handleMechanicSignatureFocus}
-              returnKeyType="done"
-              onSubmitEditing={Keyboard.dismiss}
-            />
-          </View>
+          {/* Mechanic signature - only available for admins/mechanics */}
+          {isAdmin && (
+            <View style={styles.inputContainer}>
+              <Ionicons name="construct-outline" size={22} color={COLORS.textLight} style={styles.inputIcon} />
+              <TextInput
+                ref={mechanicSignatureRef}
+                style={styles.input}
+                placeholder="Mechanic's Signature"
+                placeholderTextColor={COLORS.textLight}
+                value={mechanicSignature}
+                onChangeText={setMechanicSignature}
+                onFocus={handleMechanicSignatureFocus}
+                returnKeyType="done"
+                onSubmitEditing={Keyboard.dismiss}
+              />
+            </View>
+          )}
+
+          {/* Info message for regular users */}
+          {!isAdmin && (
+            <View style={styles.infoContainer}>
+              <Ionicons name="information-circle-outline" size={20} color={COLORS.textLight} />
+              <Text style={styles.infoText}>
+                Mechanic signature can only be added by authorized mechanics or administrators.
+              </Text>
+            </View>
+          )}
         </View>
       </ScrollView>
 

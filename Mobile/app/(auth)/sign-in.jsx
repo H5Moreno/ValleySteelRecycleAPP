@@ -75,7 +75,7 @@ export default function Page() {
           autoCapitalize="none"
           value={emailAddress}
           placeholder="Enter email"
-          placeholderTextColor="#9A8478"
+          placeholderTextColor={COLORS.textLight}
           onChangeText={(emailAddress) => setEmailAddress(emailAddress)}
         />
 
@@ -83,7 +83,7 @@ export default function Page() {
           style={[styles.input, error && styles.errorInput]}
           value={password}
           placeholder="Enter password"
-          placeholderTextColor="#9A8478"
+          placeholderTextColor={COLORS.textLight}
           secureTextEntry={true}
           onChangeText={(password) => setPassword(password)}
         />

@@ -51,7 +51,8 @@ export default function Page() {
     ]);
   };
 
-  if (isLoading && inspections.length === 0) return <PageLoader />;
+  // Show PageLoader only for initial loading, not when refreshing
+  if (isLoading && inspections.length === 0 && !refreshing) return <PageLoader />;
 
   return (
     <View style={styles.container}>

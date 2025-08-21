@@ -202,7 +202,9 @@ const DefectiveItemsChart = ({ data }) => {
                   color: COLORS.text,
                   textAlign: 'center',
                   width: barWidth,
-                  lineHeight: 12
+                  lineHeight: 12,
+                  height: 24, // Fixed height for consistent alignment
+                  textAlignVertical: 'top' // Align text to top of container
                 }} numberOfLines={2}>
                   {formatLabel(item.label)}
                 </Text>
@@ -353,12 +355,21 @@ const formatLabel = (label) => {
   if (label.length > 12) {
     const words = label.split(' ');
     if (words.length > 1) {
-      const mid = Math.ceil(words.length / 2);
-      return words.slice(0, mid).join(' ') + '\n' + words.slice(mid).join(' ');
+      // For multi-word labels, try to break evenly
+      if (words.length === 2) {
+        // For two words, put each on its own line
+        return words[0] + '\n' + words[1];
+      } else {
+        // For more than two words, split roughly in half
+        const mid = Math.ceil(words.length / 2);
+        return words.slice(0, mid).join(' ') + '\n' + words.slice(mid).join(' ');
+      }
     }
+    // For single long words, truncate
     return label.length > 12 ? label.substring(0, 10) + '...' : label;
   }
-  return label;
+  // For short labels, add padding line to maintain consistent height
+  return label + '\n ';
 };
 
 export default DefectiveItemsChart;

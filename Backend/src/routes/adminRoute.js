@@ -11,6 +11,7 @@ import {
     updateUserRole,       
     promoteUserToAdmin,
     updateUserEmailsFromClerk,
+    fixDuplicateUsers,
     //debugUserSearch,
     bootstrapFirstAdmin    
 } from "../controllers/adminController.js";
@@ -34,6 +35,7 @@ router.get("/users/:userId", getAllUsers);
 router.put("/users/:userId/role", updateUserRole);           
 router.post("/promote-admin", promoteUserToAdmin);           
 router.post("/update-user-emails", updateUserEmailsFromClerk);
+router.post("/fix-duplicates", fixDuplicateUsers);
 //router.post("/debug-user-search", debugUserSearch);          
 
 export default router;
