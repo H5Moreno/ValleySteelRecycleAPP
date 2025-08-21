@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Alert } from "react-native";
 import { API_URL } from "../constants/api";
 
-export const useInspections = (userId) => {
+export const useInspections = (userId, userEmail) => {
   const [inspections, setInspections] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastFetchTime, setLastFetchTime] = useState(0);
@@ -21,7 +21,13 @@ export const useInspections = (userId) => {
       console.log('Fetching inspections for user:', userId);
       setLastFetchTime(now);
       
-      const response = await fetch(`${API_URL}/inspections/${userId}`);
+      // Add userEmail as query parameter if available
+      const url = new URL(`${API_URL}/inspections/${userId}`);
+      if (userEmail) {
+        url.searchParams.append('userEmail', userEmail);
+      }
+      
+      const response = await fetch(url.toString());
       
       if (response.status === 429) {
         console.warn('Rate limited - will retry in a moment');
@@ -56,7 +62,7 @@ export const useInspections = (userId) => {
         Alert.alert("Error", "Failed to load inspections. Please try again later.");
       }
     }
-  }, [userId, lastFetchTime]);
+  }, [userId, userEmail, lastFetchTime]);
 
   const loadData = useCallback(async (forceRefresh = false) => {
     if (!userId) return;

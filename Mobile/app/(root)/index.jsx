@@ -5,26 +5,30 @@ import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "../../constants/colors";
 import { SignOutButton } from "@/components/SignOutButton";
 import { useInspections } from "../../hooks/useInspections";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import PageLoader from "../../components/PageLoader";
 import { styles } from "../../assets/styles/home.styles";
 import { BalanceCard } from "../../components/BalanceCard";
 import { InspectionItem } from "../../components/InspectionItem";
 import NoInspectionsFound from "../../components/NoInspectionsFound"; 
 import { useAdmin } from "../../hooks/useAdmin";
+import { API_URL } from "../../constants/api";
 
 export default function Page() {
   const { user } = useUser();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
-  const { isAdmin } = useAdmin(user?.id);
+  const { isAdmin, needsBootstrap } = useAdmin(user?.id, user?.emailAddresses?.[0]?.emailAddress); // ADD needsBootstrap here
 
-  const { inspections, isLoading, loadData, deleteInspection } = useInspections(user?.id);
+  const { inspections, isLoading, loadData, deleteInspection } = useInspections(
+    user?.id, 
+    user?.emailAddresses?.[0]?.emailAddress
+  );
   
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      await loadData(true); // Force refresh
+      await loadData(true);
     } catch (error) {
       console.error('Error refreshing:', error);
     } finally {
@@ -32,11 +36,10 @@ export default function Page() {
     }
   };
 
-  // Only fetch data when screen comes into focus if we don't have data
   useFocusEffect(
     useCallback(() => {
       if (user?.id && inspections.length === 0) {
-        loadData(false); // Don't force refresh on focus
+        loadData(false);
       }
     }, [user?.id, inspections.length])
   );
@@ -71,12 +74,23 @@ export default function Page() {
           </View>
           {/* RIGHT */}
           <View style={styles.headerRight}>
-            {isAdmin && (
+            {/* FIXED: Show admin button if user is admin OR if bootstrap is needed */}
+            {(isAdmin || needsBootstrap) && (
               <TouchableOpacity 
-                style={styles.adminButton}
+                style={[
+                  styles.adminButton,
+                  needsBootstrap && styles.bootstrapButton // Add special styling for bootstrap
+                ]}
                 onPress={() => router.push("/admin")}
               >
-                <Ionicons name="clipboard-outline" size={24} color={COLORS.primary} />
+                <Ionicons 
+                  name={needsBootstrap ? "key-outline" : "clipboard-outline"} 
+                  size={24} 
+                  color={needsBootstrap ? COLORS.expense : COLORS.primary} 
+                />
+                {needsBootstrap && (
+                  <Text style={styles.bootstrapText}>Setup</Text>
+                )}
               </TouchableOpacity>
             )}
             <SignOutButton />

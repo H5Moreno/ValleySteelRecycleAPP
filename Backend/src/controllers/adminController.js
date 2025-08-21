@@ -119,6 +119,75 @@ export async function updateUserRole(req, res) {
     }
 }
 
+export async function bootstrapFirstAdmin(req, res) {
+    try {
+        const { userId, userEmail, secretKey } = req.body;
+        
+        console.log('🔐 BOOTSTRAP FIRST ADMIN ATTEMPT');
+        console.log('User ID:', userId);
+        console.log('Email:', userEmail);
+        console.log('Received secret key:', secretKey);
+
+        const BOOTSTRAP_SECRET = process.env.ADMIN_BOOTSTRAP_SECRET || "VSR_ADMIN_BOOTSTRAP_2024";
+        console.log('Expected secret key:', BOOTSTRAP_SECRET);
+        console.log('Environment variables loaded:', {
+            PORT: process.env.PORT,
+            ADMIN_BOOTSTRAP_SECRET: process.env.ADMIN_BOOTSTRAP_SECRET
+        });
+        
+        if (secretKey !== BOOTSTRAP_SECRET) {
+            console.log('❌ Secret key mismatch!');
+            console.log('Received:', secretKey);
+            console.log('Expected:', BOOTSTRAP_SECRET);
+            return res.status(403).json({ error: "Invalid bootstrap secret" });
+        }
+        
+        // Check if ANY admin already exists
+        const existingAdmins = await sql`SELECT COUNT(*) as count FROM users WHERE role = 'admin'`;
+        const adminCount = (existingAdmins.rows || existingAdmins)[0]?.count || 0;
+        
+        if (parseInt(adminCount) > 0) {
+            console.log('❌ Admins already exist, bootstrap not allowed');
+            return res.status(403).json({ 
+                error: "Admin users already exist. Bootstrap is only allowed when no admins exist.",
+                adminCount: adminCount
+            });
+        }
+        
+        console.log('✅ No admins exist, proceeding with bootstrap...');
+        
+        // Create the first admin user
+        await sql`
+            INSERT INTO users (id, email, role) 
+            VALUES (${userId}, ${userEmail}, 'admin')
+            ON CONFLICT (id) DO UPDATE SET 
+                email = EXCLUDED.email,
+                role = 'admin'
+        `;
+        
+        // Also handle email conflicts
+        await sql`
+            INSERT INTO users (id, email, role) 
+            VALUES (${userId}, ${userEmail}, 'admin')
+            ON CONFLICT (email) DO UPDATE SET 
+                id = EXCLUDED.id,
+                role = 'admin'
+        `;
+        
+        console.log('✅ First admin created successfully');
+        
+        res.status(200).json({ 
+            message: "First admin created successfully",
+            user: { id: userId, email: userEmail, role: 'admin' }
+        });
+        
+    } catch (error) {
+        console.error("❌ Error bootstrapping first admin:", error);
+        res.status(500).json({ error: "Internal server error: " + error.message });
+    }
+}
+
+// Enhanced promote function that works for any user
 export async function promoteUserToAdmin(req, res) {
     try {
         const { userEmail } = req.body;
@@ -132,18 +201,41 @@ export async function promoteUserToAdmin(req, res) {
             return res.status(400).json({ error: "Missing user email or admin user ID" });
         }
         
-        // Verify admin status
+        // Verify the requester has admin privileges
         const adminCheck = await sql`SELECT role FROM users WHERE id = ${adminUserId}`;
         const adminResult = adminCheck.rows || adminCheck;
         if (!adminResult || adminResult.length === 0 || adminResult[0]?.role !== 'admin') {
             return res.status(403).json({ error: "Access denied. Admin privileges required." });
         }
         
-        // Find user by email
-        const userCheck = await sql`SELECT id, email, role FROM users WHERE email = ${userEmail}`;
-        const userResult = userCheck.rows || userCheck;
+        // Try to find the user by email (case insensitive)
+        let userCheck = await sql`
+            SELECT id, email, role FROM users 
+            WHERE LOWER(email) = LOWER(${userEmail})
+        `;
+        let userResult = userCheck.rows || userCheck;
+        
+        // If user doesn't exist, create them with admin role
         if (!userResult || userResult.length === 0) {
-            return res.status(404).json({ error: "User not found with that email address" });
+            console.log('📝 User not found, creating new admin user...');
+            
+            // Generate a temporary user ID
+            const tempUserId = `temp_admin_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            
+            const insertResult = await sql`
+                INSERT INTO users (id, email, role) 
+                VALUES (${tempUserId}, ${userEmail}, 'admin')
+                RETURNING id, email, role
+            `;
+            
+            const newUser = insertResult.rows?.[0] || insertResult[0];
+            
+            res.status(200).json({ 
+                message: `New admin user created for ${userEmail}. They will have admin access when they first log in.`,
+                user: newUser,
+                isNewUser: true
+            });
+            return;
         }
         
         const targetUser = userResult[0];
@@ -152,21 +244,26 @@ export async function promoteUserToAdmin(req, res) {
             return res.status(400).json({ error: "User is already an admin" });
         }
         
-        // Promote user to admin
+        // Promote existing user to admin
         const updateResult = await sql`
             UPDATE users 
             SET role = 'admin'
-            WHERE email = ${userEmail}
+            WHERE id = ${targetUser.id}
             RETURNING id, email, role
         `;
         
         const updatedUser = updateResult.rows?.[0] || updateResult[0];
         
+        if (!updatedUser) {
+            return res.status(500).json({ error: "Failed to update user role" });
+        }
+        
         console.log('✅ User promoted to admin:', updatedUser);
         
         res.status(200).json({ 
-            message: `User ${userEmail} has been promoted to admin`, 
-            user: updatedUser
+            message: `User ${userEmail} has been promoted to admin`,
+            user: updatedUser,
+            isNewUser: false
         });
         
     } catch (error) {
@@ -338,16 +435,29 @@ export async function getDefectiveItemsStats(req, res) {
 export async function checkAdminStatus(req, res) {
     try {
         const { userId } = req.params;
-        
+
+        // Use a single query to check both admin count and user status
         const result = await sql`
-            SELECT role FROM users WHERE id = ${userId}
+            SELECT 
+                (SELECT COUNT(*) FROM users WHERE role = 'admin') as admin_count,
+                (SELECT role FROM users WHERE id = ${userId || null}) as user_role
         `;
         
-        const resultRows = result.rows || result;
-        const isAdmin = resultRows[0]?.role === 'admin';
-        res.status(200).json({ isAdmin });
+        const { admin_count, user_role } = (result.rows || result)[0];
+        const adminCount = parseInt(admin_count, 10);
+        
+        // If no admins exist, trigger bootstrap
+        if (adminCount === 0) {
+            console.log('No admins found in the system. Triggering bootstrap.');
+            return res.status(200).json({ isAdmin: false, needsBootstrap: true });
+        }
+        
+        // Check if current user is admin
+        const isAdmin = user_role === 'admin';
+        return res.status(200).json({ isAdmin, needsBootstrap: false });
+
     } catch (error) {
-        console.error("Error checking admin status:", error);
+        console.error("Error in checkAdminStatus:", error);
         res.status(500).json({ error: "Internal server error" });
     }
 }
@@ -512,6 +622,69 @@ export async function getInspectionStats(req, res) {
     } catch (error) {
         console.error("Error getting inspection stats:", error);
         res.status(500).json({ error: "Internal server error" });
+    }
+}
+
+export async function updateUserEmailsFromClerk(req, res) {
+    try {
+        const { adminUserId, userUpdates } = req.body;
+        
+        console.log('=== UPDATE USER EMAILS FROM CLERK ===');
+        console.log('Admin user:', adminUserId);
+        console.log('User updates:', userUpdates);
+        
+        if (!adminUserId || !Array.isArray(userUpdates)) {
+            return res.status(400).json({ error: "Missing admin user ID or user updates array" });
+        }
+        
+        // Verify admin status
+        const adminCheck = await sql`SELECT role FROM users WHERE id = ${adminUserId}`;
+        const adminResult = adminCheck.rows || adminCheck;
+        if (!adminResult || adminResult.length === 0 || adminResult[0]?.role !== 'admin') {
+            return res.status(403).json({ error: "Access denied. Admin privileges required." });
+        }
+        
+        let updatedCount = 0;
+        const errors = [];
+        
+        // Update each user's email
+        for (const update of userUpdates) {
+            const { userId, newEmail } = update;
+            if (!userId || !newEmail) {
+                errors.push(`Invalid update data: ${JSON.stringify(update)}`);
+                continue;
+            }
+            
+            try {
+                const result = await sql`
+                    UPDATE users 
+                    SET email = ${newEmail}
+                    WHERE id = ${userId} AND email LIKE '%@clerk.user'
+                    RETURNING id, email
+                `;
+                
+                const updateResult = result.rows || result;
+                if (updateResult && updateResult.length > 0) {
+                    updatedCount++;
+                    console.log(`✅ Updated user ${userId} email to: ${newEmail}`);
+                } else {
+                    console.log(`⚠️ No update for user ${userId} (email not fake or user not found)`);
+                }
+            } catch (error) {
+                errors.push(`Failed to update user ${userId}: ${error.message}`);
+                console.error(`❌ Error updating user ${userId}:`, error);
+            }
+        }
+        
+        res.status(200).json({ 
+            message: `Successfully updated ${updatedCount} user emails`,
+            updatedCount,
+            errors: errors.length > 0 ? errors : null
+        });
+        
+    } catch (error) {
+        console.error("❌ Error updating user emails:", error);
+        res.status(500).json({ error: "Internal server error: " + error.message });
     }
 }
 

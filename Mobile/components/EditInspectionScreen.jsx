@@ -13,7 +13,7 @@ const EditInspectionScreen = () => {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { user } = useUser();
-  const { allInspections, updateInspection, isLoading: adminLoading } = useAdmin(user.id);
+  const { allInspections, updateInspection, isLoading: adminLoading, isAdmin } = useAdmin(user.id);
   
   const [isLoading, setIsLoading] = useState(false);
   const [inspection, setInspection] = useState(null);
@@ -26,7 +26,12 @@ const EditInspectionScreen = () => {
   const [speedometerReading, setSpeedometerReading] = useState("");
   const [trailerNumber, setTrailerNumber] = useState("");
   const [remarks, setRemarks] = useState("");
+  
+  // 🔧 SEPARATE ADMIN-ONLY CONDITION STATUS MANAGEMENT
+  const [originalConditionSatisfactory, setOriginalConditionSatisfactory] = useState(true);
   const [conditionSatisfactory, setConditionSatisfactory] = useState(true);
+  const [conditionStatusChanged, setConditionStatusChanged] = useState(false);
+  
   const [defectsCorrected, setDefectsCorrected] = useState(false);
   const [defectsNeedCorrection, setDefectsNeedCorrection] = useState(false);
   const [driverSignature, setDriverSignature] = useState("");
@@ -35,6 +40,21 @@ const EditInspectionScreen = () => {
   // Defective items state
   const [selectedDefectiveItems, setSelectedDefectiveItems] = useState({});
   const [selectedTruckTrailerItems, setSelectedTruckTrailerItems] = useState({});
+
+  // 🔧 ADMIN-ONLY FUNCTION TO HANDLE CONDITION STATUS CHANGES
+  const handleConditionStatusChange = (newStatus) => {
+    if (!isAdmin) {
+      Alert.alert(
+        "Access Denied", 
+        "Only administrators can modify the vehicle condition status.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+    
+    setConditionSatisfactory(newStatus);
+    setConditionStatusChanged(newStatus !== originalConditionSatisfactory);
+  };
 
   // Load inspection data
   useEffect(() => {
@@ -54,7 +74,13 @@ const EditInspectionScreen = () => {
         setSpeedometerReading(foundInspection.speedometer_reading || "");
         setTrailerNumber(foundInspection.trailer_number || "");
         setRemarks(foundInspection.remarks || "");
-        setConditionSatisfactory(foundInspection.condition_satisfactory || true);
+        
+        // 🔧 PRESERVE ORIGINAL CONDITION STATUS
+        const originalStatus = foundInspection.condition_satisfactory || false;
+        setOriginalConditionSatisfactory(originalStatus);
+        setConditionSatisfactory(originalStatus);
+        setConditionStatusChanged(false);
+        
         setDefectsCorrected(foundInspection.defects_corrected || false);
         setDefectsNeedCorrection(foundInspection.defects_need_correction || false);
         setDriverSignature(foundInspection.driver_signature || "");
@@ -114,17 +140,32 @@ const EditInspectionScreen = () => {
         truck_trailer_items: selectedTruckTrailerItems,
         trailer_number: trailerNumber.trim(),
         remarks: remarks.trim(),
-        condition_satisfactory: conditionSatisfactory,
         driver_signature: driverSignature.trim(),
         defects_corrected: defectsCorrected,
         defects_need_correction: defectsNeedCorrection,
         mechanic_signature: mechanicSignature.trim()
       };
 
+      // 🔧 ONLY INCLUDE CONDITION STATUS IF ADMIN EXPLICITLY CHANGED IT
+      if (isAdmin && conditionStatusChanged) {
+        updateData.condition_satisfactory = conditionSatisfactory;
+        console.log('✅ Admin condition status change included:', conditionSatisfactory);
+      } else {
+        console.log('🚫 Condition status NOT updated - either not admin or not changed');
+      }
+
       await updateInspection(id, updateData);
-      router.back();
+      
+      const successMessage = conditionStatusChanged && isAdmin 
+        ? "Inspection updated successfully (including condition status)" 
+        : "Inspection updated successfully";
+        
+      Alert.alert("Success", successMessage, [
+        { text: "OK", onPress: () => router.back() }
+      ]);
     } catch (error) {
       console.error("Error updating inspection:", error);
+      Alert.alert("Error", "Failed to update inspection");
     } finally {
       setIsLoading(false);
     }
@@ -306,33 +347,70 @@ const EditInspectionScreen = () => {
             />
           </View>
 
-          {/* CONDITION STATUS */}
+          {/* CONDITION STATUS - ADMIN ONLY */}
           <Text style={styles.sectionTitle}>
             <Ionicons name="checkmark-circle-outline" size={16} color={COLORS.text} /> Vehicle Condition
+            {!isAdmin && <Text style={[styles.sectionSubtitle, { color: COLORS.expense }]}> (Admin Only)</Text>}
           </Text>
 
+          {!isAdmin && (
+            <View style={[styles.adminWarningContainer, { backgroundColor: COLORS.border, padding: 10, borderRadius: 8, marginBottom: 15 }]}>
+              <Ionicons name="lock-closed-outline" size={16} color={COLORS.expense} />
+              <Text style={[styles.adminWarningText, { color: COLORS.expense, marginLeft: 8, flex: 1 }]}>
+                Only administrators can modify the vehicle condition status. Current status is preserved.
+              </Text>
+            </View>
+          )}
+
+          {conditionStatusChanged && isAdmin && (
+            <View style={[styles.changeIndicator, { backgroundColor: COLORS.secondary, padding: 8, borderRadius: 6, marginBottom: 10 }]}>
+              <Ionicons name="warning-outline" size={16} color={COLORS.white} />
+              <Text style={[styles.changeIndicatorText, { color: COLORS.white, marginLeft: 8, fontSize: 14 }]}>
+                Condition status will be updated to: {conditionSatisfactory ? "Satisfactory" : "Unsatisfactory"}
+              </Text>
+            </View>
+          )}
+
           <TouchableOpacity
-            style={styles.radioContainer}
-            onPress={() => setConditionSatisfactory(true)}
+            style={[
+              styles.radioContainer,
+              !isAdmin && { opacity: 0.6 }
+            ]}
+            onPress={() => handleConditionStatusChange(true)}
+            disabled={!isAdmin}
           >
             <Ionicons
               name={conditionSatisfactory ? "radio-button-on" : "radio-button-off"}
               size={20}
-              color={COLORS.primary}
+              color={isAdmin ? COLORS.primary : COLORS.textLight}
             />
-            <Text style={styles.radioText}>Condition of above vehicle(s) is/are satisfactory</Text>
+            <Text style={[
+              styles.radioText,
+              !isAdmin && { color: COLORS.textLight }
+            ]}>
+              Condition of above vehicle(s) is/are satisfactory
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.radioContainer}
-            onPress={() => setConditionSatisfactory(false)}
+            style={[
+              styles.radioContainer,
+              !isAdmin && { opacity: 0.6 }
+            ]}
+            onPress={() => handleConditionStatusChange(false)}
+            disabled={!isAdmin}
           >
             <Ionicons
               name={!conditionSatisfactory ? "radio-button-on" : "radio-button-off"}
               size={20}
-              color={COLORS.primary}
+              color={isAdmin ? COLORS.primary : COLORS.textLight}
             />
-            <Text style={styles.radioText}>Condition is not satisfactory</Text>
+            <Text style={[
+              styles.radioText,
+              !isAdmin && { color: COLORS.textLight }
+            ]}>
+              Condition is not satisfactory
+            </Text>
           </TouchableOpacity>
 
           {/* SIGNATURES */}

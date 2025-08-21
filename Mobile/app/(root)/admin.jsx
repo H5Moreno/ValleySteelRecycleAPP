@@ -6,9 +6,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "../../constants/colors";
 import { useAdmin } from "../../hooks/useAdmin";
 import PageLoader from "../../components/PageLoader";
+import AdminSkeleton from "../../components/AdminSkeleton";
 import DefectiveItemsChart from "../../components/DefectiveItemsChart";
 import UserManagement from "../../components/UserManagement";
 import { formatDate } from "../../lib/utils";
+import AdminBootstrap from "../../components/AdminBootstrap";
 
 export default function AdminPage() {
   const { user } = useUser();
@@ -19,19 +21,20 @@ export default function AdminPage() {
 
   const { 
     isAdmin, 
+    needsBootstrap,  // ADD THIS LINE - it was missing!
     allInspections, 
     stats, 
     defectiveItemsStats,
     isLoading, 
     loadAdminData,
     deleteInspection 
-  } = useAdmin(user?.id);
+  } = useAdmin(user?.id, user?.emailAddresses?.[0]?.emailAddress);
 
   const onRefresh = async () => {
     setRefreshing(true);
     try {
       console.log('🔄 Manual refresh triggered');
-      await loadAdminData();
+      await loadAdminData(true); // Force refresh
     } catch (error) {
       console.error('Error refreshing admin data:', error);
     } finally {
@@ -56,8 +59,8 @@ export default function AdminPage() {
 
   const getStatusColor = (inspection) => {
     if (!inspection.condition_satisfactory) return COLORS.expense;
-    if (inspection.defects_need_correction) return "#FF9500"; // Orange for needs attention
-    return COLORS.income; // Green for satisfactory
+    if (inspection.defects_need_correction) return "#FF9500";
+    return COLORS.income;
   };
 
   const getStatusText = (inspection) => {
@@ -66,7 +69,14 @@ export default function AdminPage() {
     return "Satisfactory";
   };
 
-  if (isLoading) return <PageLoader />;
+  if (isLoading) return <AdminSkeleton />;
+
+  // Handle bootstrap scenario
+  if (needsBootstrap) {
+    return <AdminBootstrap onSuccess={() => {
+      loadAdminData();
+    }} />;
+  }
 
   if (!isAdmin) {
     return (
