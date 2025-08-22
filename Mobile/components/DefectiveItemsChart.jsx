@@ -1,10 +1,13 @@
 import React from 'react';
 import { View, Text, ScrollView, Dimensions } from 'react-native';
 import { COLORS } from '../constants/colors';
+import { useTranslation } from '../hooks/useTranslation';
 
 const screenWidth = Dimensions.get('window').width;
 
 const DefectiveItemsChart = ({ data }) => {
+  const { t } = useTranslation();
+  
   if (!data || data.length === 0) {
     return (
       <View style={{
@@ -26,7 +29,7 @@ const DefectiveItemsChart = ({ data }) => {
           marginBottom: 8,
           textAlign: 'center'
         }}>
-          Defective Items Analysis
+          {t('defectiveItemsAnalysis')}
         </Text>
         <Text style={{
           fontSize: 14,
@@ -34,14 +37,14 @@ const DefectiveItemsChart = ({ data }) => {
           marginBottom: 16,
           textAlign: 'center'
         }}>
-          Car Operators & Truck/Trailer Drivers
+          {t('combinedAnalysis')}
         </Text>
         <Text style={{
           fontSize: 16,
           color: COLORS.textLight,
           textAlign: 'center'
         }}>
-          No defective items data available
+          {t('noDefectiveItemsData')}
         </Text>
       </View>
     );
@@ -81,7 +84,7 @@ const DefectiveItemsChart = ({ data }) => {
         marginBottom: 4,
         textAlign: 'center'
       }}>
-        Defective Items Analysis
+        {t('defectiveItemsAnalysis')}
       </Text>
       <Text style={{
         fontSize: 14,
@@ -90,7 +93,7 @@ const DefectiveItemsChart = ({ data }) => {
         textAlign: 'center',
         fontStyle: 'italic'
       }}>
-        Combined: Car Operators & Truck/Trailer Drivers
+        {t('combinedAnalysis')}
       </Text>
 
       {/* Legend */}
@@ -118,7 +121,7 @@ const DefectiveItemsChart = ({ data }) => {
             color: COLORS.text,
             fontWeight: '500'
           }}>
-            Car Items ({carItems.length})
+            {t('carItems')} ({carItems.length})
           </Text>
         </View>
         <View style={{
@@ -139,7 +142,7 @@ const DefectiveItemsChart = ({ data }) => {
             color: COLORS.text,
             fontWeight: '500'
           }}>
-            Truck/Trailer ({truckItems.length})
+            {t('truckTrailerItems')} ({truckItems.length})
           </Text>
         </View>
       </View>
@@ -228,7 +231,7 @@ const DefectiveItemsChart = ({ data }) => {
           marginBottom: 12,
           textAlign: 'center'
         }}>
-          Summary
+          {t('summary')}
         </Text>
         <View style={{
           flexDirection: 'row',
@@ -248,7 +251,7 @@ const DefectiveItemsChart = ({ data }) => {
               color: COLORS.textLight,
               marginTop: 4
             }}>
-              Total Items
+              {t('totalItems')}
             </Text>
           </View>
           <View style={{ alignItems: 'center' }}>
@@ -264,7 +267,7 @@ const DefectiveItemsChart = ({ data }) => {
               color: COLORS.textLight,
               marginTop: 4
             }}>
-              Car Items
+              {t('carItems')}
             </Text>
           </View>
           <View style={{ alignItems: 'center' }}>
@@ -280,7 +283,7 @@ const DefectiveItemsChart = ({ data }) => {
               color: COLORS.textLight,
               marginTop: 4
             }}>
-              Truck/Trailer
+              {t('truckTrailerItems')}
             </Text>
           </View>
         </View>
@@ -299,7 +302,7 @@ const DefectiveItemsChart = ({ data }) => {
           color: COLORS.text,
           marginBottom: 12
         }}>
-          Top 5 Most Common Issues:
+          {t('topIssues')}
         </Text>
         {topItems.slice(0, 5).map((item, index) => (
           <View key={index} style={{
@@ -340,7 +343,7 @@ const DefectiveItemsChart = ({ data }) => {
                 fontWeight: '500',
                 color: item.type === 'truck/trailer' ? secondaryColor : primaryColor
               }}>
-                {item.type === 'truck/trailer' ? 'Truck/Trailer' : 'Car'} • {item.count} occurrences
+                {item.type === 'truck/trailer' ? t('truckTrailer') : t('car')} • {item.count} {t('occurrences')}
               </Text>
             </View>
           </View>

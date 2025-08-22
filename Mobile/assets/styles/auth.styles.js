@@ -7,7 +7,14 @@ export const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
     padding: 20,
-    justifyContent: "center",
+    justifyContent: "flex-start",
+    paddingTop: 100, // Move content higher on screen
+  },
+  languageToggleContainer: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
   },
   illustration: {
     height: 310,

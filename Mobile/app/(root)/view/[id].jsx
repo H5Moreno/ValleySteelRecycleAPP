@@ -9,11 +9,13 @@ import { DEFECTIVE_ITEMS, TRUCK_TRAILER_ITEMS } from "../../../constants/inspect
 import { API_URL } from "../../../constants/api";
 import PageLoader from "../../../components/PageLoader";
 import { formatDate } from "../../../lib/utils";
+import { useTranslation } from "../../../hooks/useTranslation";
 
 export default function ViewInspection() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { user } = useUser();
+  const { t, language } = useTranslation();
   const [inspection, setInspection] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -35,7 +37,7 @@ export default function ViewInspection() {
         const response = await fetch(url.toString());
         
         if (!response.ok) {
-          throw new Error("Inspection not found");
+          throw new Error(t('inspectionNotFound'));
         }
         
         const data = await response.json();
@@ -43,7 +45,7 @@ export default function ViewInspection() {
       } catch (error) {
         console.error("Error fetching inspection:", error);
         setError(error.message);
-        Alert.alert("Error", "Failed to load inspection details");
+        Alert.alert(t('error'), t('failedToLoadInspection'));
       } finally {
         setIsLoading(false);
       }
@@ -59,7 +61,7 @@ export default function ViewInspection() {
     const item = itemsArray.find(item => item.id === itemId);
     if (!item) return itemId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     
-    const baseName = item.name;
+    const baseName = t(item.name);
     return item.asterisk ? `*${baseName}` : baseName;
   };
 
@@ -82,7 +84,7 @@ export default function ViewInspection() {
 
     if (selectedItems.length === 0) {
       return (
-        <Text style={styles.noItemsText}>No defective items reported</Text>
+        <Text style={styles.noItemsText}>{t('noDefectiveItems')}</Text>
       );
     }
 
@@ -123,7 +125,7 @@ export default function ViewInspection() {
 
     if (selectedItems.length === 0) {
       return (
-        <Text style={styles.noItemsText}>No truck/trailer defects reported</Text>
+        <Text style={styles.noItemsText}>{t('noTruckTrailerDefects')}</Text>
       );
     }
 
@@ -150,17 +152,17 @@ export default function ViewInspection() {
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color={COLORS.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Error</Text>
+          <Text style={styles.headerTitle}>{t('error')}</Text>
         </View>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>
-            {error || "Inspection not found"}
+            {error || t('inspectionNotFound')}
           </Text>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
           >
-            <Text style={styles.backButtonText}>Go Back</Text>
+            <Text style={styles.backButtonText}>{t('goBack')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -173,42 +175,42 @@ export default function ViewInspection() {
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={COLORS.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Inspection Details</Text>
+        <Text style={styles.headerTitle}>{t('inspectionDetails')}</Text>
       </View>
 
       <View style={styles.content}>
         {/* Basic Information */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Basic Information</Text>
+          <Text style={styles.sectionTitle}>{t('basicInformation')}</Text>
           
           <View style={styles.infoRow}>
-            <Text style={styles.label}>Vehicle:</Text>
+            <Text style={styles.label}>{t('vehicle')}:</Text>
             <Text style={styles.value}>{inspection.vehicle}</Text>
           </View>
           
           <View style={styles.infoRow}>
-            <Text style={styles.label}>Location:</Text>
-            <Text style={styles.value}>{inspection.location || "Not specified"}</Text>
+            <Text style={styles.label}>{t('location')}:</Text>
+            <Text style={styles.value}>{inspection.location || t('notSpecified')}</Text>
           </View>
           
           <View style={styles.infoRow}>
-            <Text style={styles.label}>Date:</Text>
-            <Text style={styles.value}>{formatDate(inspection.created_at)}</Text>
+            <Text style={styles.label}>{t('date')}:</Text>
+            <Text style={styles.value}>{formatDate(inspection.created_at, language)}</Text>
           </View>
           
           <View style={styles.infoRow}>
-            <Text style={styles.label}>Time:</Text>
-            <Text style={styles.value}>{inspection.time || "Not specified"}</Text>
+            <Text style={styles.label}>{t('time')}:</Text>
+            <Text style={styles.value}>{inspection.time || t('notSpecified')}</Text>
           </View>
           
           <View style={styles.infoRow}>
-            <Text style={styles.label}>Speedometer Reading:</Text>
-            <Text style={styles.value}>{inspection.speedometer_reading || "Not recorded"}</Text>
+            <Text style={styles.label}>{t('speedometerReading')}:</Text>
+            <Text style={styles.value}>{inspection.speedometer_reading || t('notRecorded')}</Text>
           </View>
 
           {inspection.trailer_number && (
             <View style={styles.infoRow}>
-              <Text style={styles.label}>Trailer Number:</Text>
+              <Text style={styles.label}>{t('trailerNumber')}:</Text>
               <Text style={styles.value}>{inspection.trailer_number}</Text>
             </View>
           )}
@@ -216,7 +218,7 @@ export default function ViewInspection() {
 
         {/* Condition Status */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Condition Status</Text>
+          <Text style={styles.sectionTitle}>{t('conditionStatus')}</Text>
           <View style={styles.statusContainer}>
             <View style={[
               styles.statusBadge,
@@ -228,7 +230,7 @@ export default function ViewInspection() {
                 color={COLORS.white} 
               />
               <Text style={styles.statusText}>
-                {inspection.condition_satisfactory ? "Satisfactory" : "Unsatisfactory"}
+                {inspection.condition_satisfactory ? t('satisfactory') : t('unsatisfactory')}
               </Text>
             </View>
           </View>
@@ -236,9 +238,9 @@ export default function ViewInspection() {
 
         {/* Defective Items */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Defective Items</Text>
+          <Text style={styles.sectionTitle}>{t('defectiveItems')}</Text>
           <Text style={styles.asteriskNote}>
-            *Items marked with asterisk are critical safety components
+            {t('asteriskNote')}
           </Text>
           <View style={styles.itemsContainer}>
             {renderDefectiveItems()}
@@ -247,7 +249,7 @@ export default function ViewInspection() {
 
         {/* Truck/Trailer Items */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Truck/Trailer Defects</Text>
+          <Text style={styles.sectionTitle}>{t('truckTrailerDefects')}</Text>
           <View style={styles.itemsContainer}>
             {renderTruckTrailerItems()}
           </View>
@@ -256,43 +258,43 @@ export default function ViewInspection() {
         {/* Remarks */}
         {inspection.remarks && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Remarks</Text>
+            <Text style={styles.sectionTitle}>{t('remarks')}</Text>
             <Text style={styles.remarksText}>{inspection.remarks}</Text>
           </View>
         )}
 
         {/* Correction Status */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Correction Status</Text>
+          <Text style={styles.sectionTitle}>{t('correctionStatus')}</Text>
           
           <View style={styles.infoRow}>
-            <Text style={styles.label}>Defects Corrected:</Text>
+            <Text style={styles.label}>{t('defectsCorrectedLabel')}</Text>
             <Text style={[
               styles.value,
               { color: inspection.defects_corrected ? COLORS.income : COLORS.expense }
             ]}>
-              {inspection.defects_corrected ? "Yes" : "No"}
+              {inspection.defects_corrected ? t('yes') : t('no')}
             </Text>
           </View>
           
           <View style={styles.infoRow}>
-            <Text style={styles.label}>Needs Correction for Safe Operation:</Text>
+            <Text style={styles.label}>{t('needsCorrectionLabel')}</Text>
             <Text style={[
               styles.value,
               { color: inspection.defects_need_correction ? COLORS.expense : COLORS.income }
             ]}>
-              {inspection.defects_need_correction ? "Yes" : "No"}
+              {inspection.defects_need_correction ? t('yes') : t('no')}
             </Text>
           </View>
         </View>
 
         {/* Signatures */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Signatures</Text>
+          <Text style={styles.sectionTitle}>{t('signatures')}</Text>
           
           {/* Driver Signature */}
           <View style={styles.signatureRow}>
-            <Text style={styles.label}>Driver Signature:</Text>
+            <Text style={styles.label}>{t('driverSignature')}:</Text>
             <View style={styles.signatureContainer}>
               {inspection.driver_signature && inspection.driver_signature.trim() ? (
                 <>
@@ -301,7 +303,7 @@ export default function ViewInspection() {
                 </>
               ) : (
                 <>
-                  <Text style={[styles.signatureText, styles.signatureEmpty]}>Not signed</Text>
+                  <Text style={[styles.signatureText, styles.signatureEmpty]}>{t('notSigned')}</Text>
                   <Ionicons name="close-circle" size={20} color={COLORS.expense} style={styles.signatureCheck} />
                 </>
               )}
@@ -310,7 +312,7 @@ export default function ViewInspection() {
           
           {/* Mechanic Signature */}
           <View style={styles.signatureRow}>
-            <Text style={styles.label}>Mechanic Signature:</Text>
+            <Text style={styles.label}>{t('mechanicSignature')}:</Text>
             <View style={styles.signatureContainer}>
               {inspection.mechanic_signature && inspection.mechanic_signature.trim() ? (
                 <>
@@ -319,7 +321,7 @@ export default function ViewInspection() {
                 </>
               ) : (
                 <>
-                  <Text style={[styles.signatureText, styles.signatureEmpty]}>Not signed</Text>
+                  <Text style={[styles.signatureText, styles.signatureEmpty]}>{t('notSigned')}</Text>
                   <Ionicons name="close-circle" size={20} color={COLORS.expense} style={styles.signatureCheck} />
                 </>
               )}

@@ -8,10 +8,13 @@ import { COLORS } from "@/constants/colors.js";
 import { Image } from 'expo-image'
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import LanguageToggle from '../../components/LanguageToggle'
+import { useTranslation } from '../../hooks/useTranslation'
 
 export default function SignUpScreen() {
   const { isLoaded, signUp, setActive } = useSignUp()
   const router = useRouter()
+  const { t } = useTranslation()
 
   const [emailAddress, setEmailAddress] = useState('')
   const [password, setPassword] = useState('')
@@ -75,6 +78,11 @@ export default function SignUpScreen() {
   if (pendingVerification) {
     return (
       <SafeAreaView style={styles.verificationContainer}>
+        {/* Language Toggle for verification screen */}
+        <View style={styles.languageToggleContainer}>
+          <LanguageToggle size="medium" showLabel={true} />
+        </View>
+        
         {/* Header with back button - positioned at top left */}
         <View style={styles.verificationHeader}>
           <TouchableOpacity 
@@ -86,7 +94,7 @@ export default function SignUpScreen() {
             }}
           >
             <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
-            <Text style={styles.backButtonText}>Back</Text>
+            <Text style={styles.backButtonText}>{t('goBack')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -98,9 +106,9 @@ export default function SignUpScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.verificationContent}>
-            <Text style={styles.verificationTitle}>Verify your email</Text>
+            <Text style={styles.verificationTitle}>{t('verifyYourEmail')}</Text>
             <Text style={styles.verificationSubtitle}>
-              We've sent a verification code to{'\n'}
+              {t('enterVerificationCode')}{'\n'}
               <Text style={styles.emailText}>{emailAddress}</Text>
             </Text>
 
@@ -126,7 +134,7 @@ export default function SignUpScreen() {
             />
             
             <TouchableOpacity onPress={onVerifyPress} style={styles.verifyButton}>
-              <Text style={styles.buttonText}>Verify Email</Text>
+              <Text style={styles.buttonText}>{t('verify')}</Text>
             </TouchableOpacity>
 
             {/* Help section */}
@@ -153,12 +161,17 @@ export default function SignUpScreen() {
       extraScrollHeight={30}
     >
         <View style={styles.container}>
+        {/* Language Toggle at the top */}
+        <View style={styles.languageToggleContainer}>
+          <LanguageToggle size="medium" showLabel={true} />
+        </View>
+        
         <Image 
           source={require("../../assets/images/VSR.png")} 
           style={[styles.illustration, { alignSelf: "center" }]} 
         />
 
-        <Text style={styles.title}>Create Account</Text>
+        <Text style={styles.title}>{t('signUp')}</Text>
 
         {error ? (
             <View style={styles.errorBox}>
@@ -174,26 +187,26 @@ export default function SignUpScreen() {
           style={[styles.input, error && styles.errorInput]}
           autoCapitalize="none"
           value={emailAddress}
-          placeholder="Enter email"
+          placeholder={t('enterEmail')}
           placeholderTextColor={COLORS.textLight}
           onChangeText={(emailAddress) => setEmailAddress(emailAddress)}
         />
         <TextInput
           style={[styles.input, error && styles.errorInput]}
           value={password}
-          placeholder="Enter password"
+          placeholder={t('enterPassword')}
           placeholderTextColor={COLORS.textLight}
           secureTextEntry={true}
           onChangeText={(password) => setPassword(password)}
         />
         <TouchableOpacity style={styles.button} onPress={onSignUpPress}>
-          <Text style={styles.buttonText}>Sign Up</Text>
+          <Text style={styles.buttonText}>{t('signUp')}</Text>
         </TouchableOpacity>
 
         <View style={styles.footerContainer}>
-          <Text style={styles.footerText}>Already have an account?</Text>
+          <Text style={styles.footerText}>{t('alreadyHaveAccount')}</Text>
           <TouchableOpacity onPress={() => router.back()}>
-            <Text style={styles.linkText}>Sign In</Text>
+            <Text style={styles.linkText}>{t('signIn')}</Text>
           </TouchableOpacity> 
             </View>
         </View>

@@ -4,9 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useUser } from '@clerk/clerk-expo';
 import { COLORS } from '../constants/colors';
 import { API_URL } from '../constants/api';
+import { useTranslation } from '../hooks/useTranslation';
 
 const UserManagement = ({ adminUserId }) => {
   const { user } = useUser(); // Get current user info to access email
+  const { t } = useTranslation();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -22,11 +24,11 @@ const UserManagement = ({ adminUserId }) => {
         setUsers(userData);
       } else {
         console.error('Failed to fetch users');
-        Alert.alert('Error', 'Failed to load users');
+        Alert.alert(t('error'), t('failedToLoadUsers'));
       }
     } catch (error) {
       console.error('Error fetching users:', error);
-      Alert.alert('Error', 'Network error while loading users');
+      Alert.alert(t('error'), t('networkErrorUsers'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -46,15 +48,15 @@ const UserManagement = ({ adminUserId }) => {
 
   const handleRoleChange = (userId, currentRole, userEmail) => {
     const newRole = currentRole === 'admin' ? 'user' : 'admin';
-    const actionText = newRole === 'admin' ? 'promote to admin' : 'remove admin privileges';
+    const actionText = newRole === 'admin' ? t('promoteToAdmin') : t('removeAdminPrivileges');
     
     Alert.alert(
-      'Change User Role',
-      `Are you sure you want to ${actionText} for ${userEmail || 'this user'}?`,
+      t('changeUserRole'),
+      `${t('areYouSure')} ${actionText} ${t('forUser')} ${userEmail || t('thisUser')}?`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         { 
-          text: 'Confirm', 
+          text: t('confirm'), 
           onPress: () => updateUserRole(userId, newRole)
         }
       ]
@@ -77,21 +79,21 @@ const UserManagement = ({ adminUserId }) => {
       const result = await response.json();
 
       if (response.ok) {
-        Alert.alert('Success', result.message || 'User role updated successfully');
+        Alert.alert(t('success'), result.message || t('userRoleUpdated'));
         fetchUsers(); // Refresh the list
       } else {
         console.error('Update role error:', result);
-        Alert.alert('Error', result.error || 'Failed to update user role');
+        Alert.alert(t('error'), result.error || t('failedToUpdateRole'));
       }
     } catch (error) {
       console.error('Error updating user role:', error);
-      Alert.alert('Error', 'Network error while updating user role');
+      Alert.alert(t('error'), t('networkErrorRole'));
     }
   };
 
   const promoteUserByEmail = async () => {
     if (!emailToPromote.trim()) {
-      Alert.alert('Error', 'Please enter an email address');
+      Alert.alert(t('error'), t('enterEmailAddress'));
       return;
     }
 
@@ -114,17 +116,17 @@ const UserManagement = ({ adminUserId }) => {
       console.log('Promote response:', result);
 
       if (response.ok) {
-        Alert.alert('Success', result.message || 'User promoted to admin successfully');
+        Alert.alert(t('success'), result.message || t('userPromotedSuccess'));
         setEmailToPromote('');
         setPromoteModalVisible(false);
         fetchUsers(); // Refresh the list
       } else {
         console.error('Promote error:', result);
-        Alert.alert('Error', result.error || 'Failed to promote user');
+        Alert.alert(t('error'), result.error || t('failedToPromote'));
       }
     } catch (error) {
       console.error('Error promoting user:', error);
-      Alert.alert('Error', 'Network error while promoting user');
+      Alert.alert(t('error'), t('networkErrorPromote'));
     } finally {
       setPromoting(false);
     }
@@ -134,22 +136,22 @@ const UserManagement = ({ adminUserId }) => {
     const { id, email, role } = userItem;
     
     // Determine what to show
-    let displayEmail = email || 'No email available';
+    let displayEmail = email || t('noEmailAvailable');
     let isTemporary = email && email.includes('@clerk.user');
     
     if (isTemporary) {
-      displayEmail = `Temporary: ${email}`;
+      displayEmail = `${t('temporary')}: ${email}`;
     }
     
-    const userInfo = `User ID: ${id}\nEmail: ${displayEmail}\nRole: ${role}`;
+    const userInfo = `${t('userId')}: ${id}\n${t('email')}: ${displayEmail}\n${t('role')}: ${role}`;
     
     Alert.alert(
-      'User Information',
+      t('userInformation'),
       userInfo,
       [
         { text: 'OK' },
         ...(isTemporary && id === user?.id && user?.emailAddresses?.[0]?.emailAddress ? [{
-          text: 'Update My Email',
+          text: t('updateMyEmail'),
           onPress: () => updateCurrentUserEmail()
         }] : [])
       ]
@@ -177,14 +179,14 @@ const UserManagement = ({ adminUserId }) => {
       const result = await response.json();
 
       if (response.ok) {
-        Alert.alert('Success', 'Your email address has been updated!');
+        Alert.alert(t('success'), t('emailUpdatedSuccess'));
         fetchUsers(); // Refresh the list
       } else {
-        Alert.alert('Error', result.error || 'Failed to update email address');
+        Alert.alert(t('error'), result.error || t('failedToUpdateEmail'));
       }
     } catch (error) {
       console.error('Error updating email:', error);
-      Alert.alert('Error', 'Network error while updating email address');
+      Alert.alert(t('error'), t('networkErrorEmail'));
     }
   };
 
@@ -193,17 +195,17 @@ const UserManagement = ({ adminUserId }) => {
     const usersWithFakeEmails = users.filter(u => u.email && u.email.includes('@clerk.user'));
     
     if (usersWithFakeEmails.length === 0) {
-      Alert.alert('Info', 'No users found with fake email addresses. All users appear to have real email addresses.');
+      Alert.alert('Info', t('couldNotUpdateEmails'));
       return;
     }
 
     Alert.alert(
-      'Update Email Addresses',
-      `Found ${usersWithFakeEmails.length} users with temporary email addresses. Do you want to update them with real email addresses?\n\nNote: This will only work for users who are currently logged in and have provided their real email addresses to the system.`,
+      t('updateEmailAddresses'),
+      `${t('found')} ${usersWithFakeEmails.length} ${t('usersWithTempEmails')}\n\n${t('onlyWorksForLoggedIn')}`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         { 
-          text: 'Update', 
+          text: t('update'), 
           onPress: async () => {
             try {
               // For now, we can only update the current admin user's email
@@ -229,17 +231,17 @@ const UserManagement = ({ adminUserId }) => {
                 const result = await response.json();
 
                 if (response.ok) {
-                  Alert.alert('Success', result.message || 'Email addresses updated successfully');
+                  Alert.alert(t('success'), result.message || t('emailsUpdatedSuccess'));
                   fetchUsers(); // Refresh the list
                 } else {
-                  Alert.alert('Error', result.error || 'Failed to update email addresses');
+                  Alert.alert(t('error'), result.error || t('failedToUpdateEmails'));
                 }
               } else {
-                Alert.alert('Info', 'Could not update email addresses. This feature currently only works for the logged-in admin user.');
+                Alert.alert('Info', t('couldNotUpdateEmails'));
               }
             } catch (error) {
               console.error('Error updating fake emails:', error);
-              Alert.alert('Error', 'Network error while updating email addresses');
+              Alert.alert(t('error'), t('networkErrorEmails'));
             }
           }
         }
@@ -259,7 +261,7 @@ const UserManagement = ({ adminUserId }) => {
       iconName = "checkmark-circle-outline";
       iconColor = COLORS.income;
     } else if (hasTemporaryEmail) {
-      displayText = "Tap to view user details";
+      displayText = t('tapToViewDetails');
       textStyle = [styles.userEmail, styles.temporaryEmailText];
       iconName = "information-circle-outline";
       iconColor = COLORS.secondary;
@@ -298,13 +300,13 @@ const UserManagement = ({ adminUserId }) => {
               />
             </TouchableOpacity>
           </View>
-          <Text style={styles.userRole}>Role: {item.role}</Text>
+          <Text style={styles.userRole}>{t('roleLabel')} {item.role}</Text>
           <Text style={styles.userDate}>
-            Joined: {new Date(item.created_at).toLocaleDateString()}
+            {t('joined')} {new Date(item.created_at).toLocaleDateString()}
           </Text>
           {item.inspection_count !== undefined && (
             <Text style={styles.userInspections}>
-              📊 {item.inspection_count} inspections
+              📊 {item.inspection_count} {t('inspectionsCount')}
             </Text>
           )}
         </View>
@@ -316,7 +318,7 @@ const UserManagement = ({ adminUserId }) => {
           onPress={() => handleRoleChange(item.id, item.role, item.email)}
         >
           <Text style={styles.roleButtonText}>
-            {item.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
+            {item.role === 'admin' ? t('removeAdmin') : t('makeAdmin')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -327,7 +329,7 @@ const UserManagement = ({ adminUserId }) => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading users...</Text>
+        <Text style={styles.loadingText}>{t('loadingUsers')}</Text>
       </View>
     );
   }
@@ -335,7 +337,7 @@ const UserManagement = ({ adminUserId }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>User Management</Text>
+        <Text style={styles.title}>{t('userManagement')}</Text>
         <View style={styles.headerButtons}>
           <TouchableOpacity
             style={styles.updateEmailsButton}
@@ -348,7 +350,7 @@ const UserManagement = ({ adminUserId }) => {
             onPress={() => setPromoteModalVisible(true)}
           >
             <Ionicons name="person-add" size={24} color={COLORS.white} />
-            <Text style={styles.addButtonText}>Promote User</Text>
+            <Text style={styles.addButtonText}>{t('promoteUser')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -364,8 +366,8 @@ const UserManagement = ({ adminUserId }) => {
         ListEmptyComponent={() => (
           <View style={styles.emptyContainer}>
             <Ionicons name="people-outline" size={48} color={COLORS.textLight} />
-            <Text style={styles.emptyText}>No users found</Text>
-            <Text style={styles.emptySubtext}>Users will appear here once they create their first inspection</Text>
+            <Text style={styles.emptyText}>{t('noUsersFound')}</Text>
+            <Text style={styles.emptySubtext}>{t('usersWillAppear')}</Text>
           </View>
         )}
       />
@@ -380,7 +382,7 @@ const UserManagement = ({ adminUserId }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Promote User to Admin</Text>
+              <Text style={styles.modalTitle}>{t('promoteToAdminTitle')}</Text>
               <TouchableOpacity
                 onPress={() => setPromoteModalVisible(false)}
                 style={styles.closeButton}
@@ -390,13 +392,13 @@ const UserManagement = ({ adminUserId }) => {
             </View>
             
             <Text style={styles.modalInstructions}>
-              Enter the email address of the user you want to promote to admin.
-              {'\n\n'}💡 If the user doesn't exist in our database yet, a new record will be created automatically.
+              {t('enterEmailAddress')}
+              {'\n\n'}💡 {t('userWillBeCreated')}
             </Text>
             
             <TextInput
               style={styles.emailInput}
-              placeholder="Enter user's email address"
+              placeholder={t('enterEmailPlaceholder')}
               placeholderTextColor={COLORS.textLight}
               value={emailToPromote}
               onChangeText={setEmailToPromote}
@@ -414,7 +416,7 @@ const UserManagement = ({ adminUserId }) => {
                 }}
                 disabled={promoting}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={styles.cancelButtonText}>{t('cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
@@ -428,7 +430,7 @@ const UserManagement = ({ adminUserId }) => {
                 {promoting ? (
                   <ActivityIndicator size="small" color={COLORS.white} />
                 ) : (
-                  <Text style={styles.promoteButtonText}>Promote</Text>
+                  <Text style={styles.promoteButtonText}>{t('promote')}</Text>
                 )}
               </TouchableOpacity>
             </View>

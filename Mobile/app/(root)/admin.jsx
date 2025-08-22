@@ -11,10 +11,12 @@ import DefectiveItemsChart from "../../components/DefectiveItemsChart";
 import UserManagement from "../../components/UserManagement";
 import { formatDate } from "../../lib/utils";
 import AdminBootstrap from "../../components/AdminBootstrap";
+import { useTranslation } from "../../hooks/useTranslation";
 
 export default function AdminPage() {
   const { user } = useUser();
   const router = useRouter();
+  const { t, language } = useTranslation();
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showAllInspections, setShowAllInspections] = useState(false);
@@ -51,9 +53,9 @@ export default function AdminPage() {
   );
 
   const handleDelete = (id) => {
-    Alert.alert("Delete Inspection", "Are you sure you want to delete this inspection?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => deleteInspection(id) },
+    Alert.alert(t('deleteInspection'), t('deleteConfirmation'), [
+      { text: t('cancel'), style: "cancel" },
+      { text: t('delete'), style: "destructive", onPress: () => deleteInspection(id) },
     ]);
   };
 
@@ -64,9 +66,9 @@ export default function AdminPage() {
   };
 
   const getStatusText = (inspection) => {
-    if (!inspection.condition_satisfactory) return "Unsatisfactory";
-    if (inspection.defects_need_correction) return "Needs Correction";
-    return "Satisfactory";
+    if (!inspection.condition_satisfactory) return t('unsatisfactory');
+    if (inspection.defects_need_correction) return t('needsAttention');
+    return t('satisfactory');
   };
 
   if (isLoading) return <AdminSkeleton />;
@@ -85,12 +87,12 @@ export default function AdminPage() {
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color={COLORS.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Admin Panel</Text>
+          <Text style={styles.headerTitle}>{t('adminPanel')}</Text>
         </View>
         <View style={styles.centeredContainer}>
           <Ionicons name="shield-outline" size={64} color={COLORS.textLight} />
-          <Text style={styles.noAccessText}>Access Denied</Text>
-          <Text style={styles.noAccessSubtext}>You don't have admin privileges</Text>
+          <Text style={styles.noAccessText}>{t('accessDenied')}</Text>
+          <Text style={styles.noAccessSubtext}>{t('noAdminPrivileges')}</Text>
         </View>
       </View>
     );
@@ -110,7 +112,7 @@ export default function AdminPage() {
         <Text style={[
           styles.tabText, 
           activeTab === 'dashboard' && styles.activeTabText
-        ]}>Dashboard</Text>
+        ]}>{t('dashboard')}</Text>
       </TouchableOpacity>
       
       <TouchableOpacity
@@ -125,7 +127,7 @@ export default function AdminPage() {
         <Text style={[
           styles.tabText, 
           activeTab === 'users' && styles.activeTabText
-        ]}>Users</Text>
+        ]}>{t('users')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -140,13 +142,13 @@ export default function AdminPage() {
         
         <View style={styles.inspectionDetails}>
           <Text style={styles.inspectionVehicle} numberOfLines={1}>
-            {inspection.vehicle || "Vehicle Inspection"}
+            {inspection.vehicle || t('vehicleInspection')}
           </Text>
           <Text style={styles.inspectionLocation} numberOfLines={1}>
-            {inspection.location || "No location"}
+            {inspection.location || t('notSpecified')}
           </Text>
           <Text style={styles.inspectionUser} numberOfLines={1}>
-            {inspection.user_email || "Unknown user"}
+            {inspection.user_email || t('unknownUser')}
           </Text>
         </View>
         
@@ -155,7 +157,7 @@ export default function AdminPage() {
             {getStatusText(inspection)}
           </Text>
           <Text style={styles.inspectionDate}>
-            {formatDate(inspection.created_at)}
+            {formatDate(inspection.created_at, language)}
           </Text>
         </View>
       </View>
@@ -167,7 +169,7 @@ export default function AdminPage() {
           onPress={() => router.push(`/view/${inspection.id}`)}
         >
           <Ionicons name="eye-outline" size={16} color={COLORS.primary} />
-          <Text style={[styles.actionButtonText, { color: COLORS.primary }]}>View</Text>
+          <Text style={[styles.actionButtonText, { color: COLORS.primary }]}>{t('view')}</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
@@ -175,7 +177,7 @@ export default function AdminPage() {
           onPress={() => router.push(`/admin/edit/${inspection.id}`)}
         >
           <Ionicons name="create-outline" size={16} color={COLORS.secondary} />
-          <Text style={[styles.actionButtonText, { color: COLORS.secondary }]}>Edit</Text>
+          <Text style={[styles.actionButtonText, { color: COLORS.secondary }]}>{t('edit')}</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
@@ -183,7 +185,7 @@ export default function AdminPage() {
           onPress={() => handleDelete(inspection.id)}
         >
           <Ionicons name="trash-outline" size={16} color={COLORS.expense} />
-          <Text style={[styles.actionButtonText, { color: COLORS.expense }]}>Delete</Text>
+          <Text style={[styles.actionButtonText, { color: COLORS.expense }]}>{t('delete')}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -202,7 +204,7 @@ export default function AdminPage() {
             <Ionicons name="clipboard-outline" size={20} color={COLORS.primary} />
             <Text style={styles.compactStatNumber}>{stats?.total_inspections || 0}</Text>
           </View>
-          <Text style={styles.compactStatLabel}>Total Inspections</Text>
+          <Text style={styles.compactStatLabel}>{t('totalInspections')}</Text>
         </View>
         
         <View style={[styles.statCard, styles.horizontalCard]}>
@@ -210,7 +212,7 @@ export default function AdminPage() {
             <Ionicons name="checkmark-circle-outline" size={20} color={COLORS.success} />
             <Text style={styles.compactStatNumber}>{stats?.satisfactory_count || 0}</Text>
           </View>
-          <Text style={styles.compactStatLabel}>Satisfactory</Text>
+          <Text style={styles.compactStatLabel}>{t('satisfactoryCount')}</Text>
         </View>
         
         <View style={[styles.statCard, styles.horizontalCard]}>
@@ -218,7 +220,7 @@ export default function AdminPage() {
             <Ionicons name="warning-outline" size={20} color={COLORS.warning} />
             <Text style={styles.compactStatNumber}>{stats?.unsatisfactory_count || 0}</Text>
           </View>
-          <Text style={styles.compactStatLabel}>Need Attention</Text>
+          <Text style={styles.compactStatLabel}>{t('needAttention')}</Text>
         </View>
       </View>
 
@@ -230,12 +232,12 @@ export default function AdminPage() {
       {/* Recent Inspections - UPDATED TO MATCH CHART CONTAINER RATIO */}
       <View style={styles.inspectionsContainer}>
         <Text style={styles.inspectionsTitle}>
-          {showAllInspections ? 'All Inspections' : 'Recent Inspections'}
+          {showAllInspections ? t('allInspections') : t('recentInspections')}
         </Text>
         <Text style={styles.inspectionsSubtitle}>
           {showAllInspections 
-            ? `Showing all ${allInspections.length} inspections`
-            : `Latest ${Math.min(allInspections.length, 5)} of ${allInspections.length} inspections`
+            ? `${t('showingAll')} ${allInspections.length} ${t('inspections')}`
+            : `${t('latest')} ${Math.min(allInspections.length, 5)} ${t('of')} ${allInspections.length} ${t('inspections')}`
           }
         </Text>
         
@@ -253,8 +255,8 @@ export default function AdminPage() {
           >
             <Text style={styles.viewAllText}>
               {showAllInspections 
-                ? `Show Less` 
-                : `View All ${allInspections.length} Inspections`
+                ? t('showLess')
+                : `${t('viewAll')} ${allInspections.length} ${t('inspections')}`
               }
             </Text>
             <Ionicons 
@@ -279,7 +281,7 @@ export default function AdminPage() {
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={COLORS.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Admin Panel</Text>
+        <Text style={styles.headerTitle}>{t('adminPanel')}</Text>
         <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
           <Ionicons name="refresh" size={24} color={COLORS.text} />
         </TouchableOpacity>
