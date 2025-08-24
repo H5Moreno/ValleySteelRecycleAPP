@@ -215,56 +215,98 @@ export async function promoteUserToAdmin(req, res) {
         `;
         let userResult = userCheck.rows || userCheck;
         
-        // If user doesn't exist, create them with admin role
+        // If user doesn't exist, create them with admin role using a special placeholder ID
         if (!userResult || userResult.length === 0) {
             console.log('📝 User not found, creating new admin user...');
+            console.log('📧 Email to process:', userEmail);
             
-            // Generate a temporary user ID
-            const tempUserId = `temp_admin_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            // Create user with email as primary identifier
+            // Use email-based ID that will be updated when they first log in
+            // Improved sanitization for all email domains
+            const emailBasedId = `email_${userEmail
+                .toLowerCase()
+                .replace(/[^a-zA-Z0-9@._-]/g, '_')
+                .replace(/@/g, '_at_')
+                .replace(/\./g, '_dot_')
+                .substring(0, 200)}`; // Ensure ID doesn't exceed VARCHAR(255) limit
             
-            const insertResult = await sql`
-                INSERT INTO users (id, email, role) 
-                VALUES (${tempUserId}, ${userEmail}, 'admin')
-                RETURNING id, email, role
-            `;
+            console.log('🆔 Generated email-based ID:', emailBasedId);
             
-            const newUser = insertResult.rows?.[0] || insertResult[0];
-            
-            res.status(200).json({ 
-                message: `New admin user created for ${userEmail}. They will have admin access when they first log in.`,
-                user: newUser,
-                isNewUser: true
-            });
-            return;
+            try {
+                const insertResult = await sql`
+                    INSERT INTO users (id, email, role) 
+                    VALUES (${emailBasedId}, ${userEmail}, 'admin')
+                    RETURNING id, email, role
+                `;
+                
+                const newUser = insertResult.rows?.[0] || insertResult[0];
+                console.log('✅ New admin user created:', newUser);
+                
+                res.status(200).json({ 
+                    message: `New admin user created for ${userEmail}. They will have admin access when they first log in.`,
+                    user: newUser,
+                    isNewUser: true
+                });
+                return;
+            } catch (insertError) {
+                console.error('❌ Error creating new admin user:', insertError);
+                
+                // Check if it's a duplicate email error
+                if (insertError.message && insertError.message.includes('duplicate') || insertError.code === '23505') {
+                    return res.status(400).json({ 
+                        error: `A user with email ${userEmail} already exists. Please check if they are already registered.` 
+                    });
+                }
+                
+                return res.status(500).json({ 
+                    error: `Failed to create admin user: ${insertError.message}` 
+                });
+            }
         }
         
         const targetUser = userResult[0];
+        console.log('👤 Existing user found:', targetUser);
+        console.log('📧 Current role:', targetUser.role);
         
         if (targetUser.role === 'admin') {
-            return res.status(400).json({ error: "User is already an admin" });
+            return res.status(200).json({ 
+                message: `${userEmail} is already an admin.`,
+                user: targetUser,
+                isAlreadyAdmin: true
+            });
         }
         
         // Promote existing user to admin
-        const updateResult = await sql`
-            UPDATE users 
-            SET role = 'admin'
-            WHERE id = ${targetUser.id}
-            RETURNING id, email, role
-        `;
-        
-        const updatedUser = updateResult.rows?.[0] || updateResult[0];
-        
-        if (!updatedUser) {
-            return res.status(500).json({ error: "Failed to update user role" });
+        try {
+            console.log('🔄 Promoting user to admin...');
+            const updateResult = await sql`
+                UPDATE users 
+                SET role = 'admin'
+                WHERE id = ${targetUser.id}
+                RETURNING id, email, role
+            `;
+            
+            const updatedUser = updateResult.rows?.[0] || updateResult[0];
+            
+            if (!updatedUser) {
+                console.error('❌ Update query succeeded but no user returned');
+                return res.status(500).json({ error: "Failed to update user role - no user returned" });
+            }
+            
+            console.log('✅ User promoted to admin:', updatedUser);
+            
+            res.status(200).json({ 
+                message: `User ${userEmail} has been promoted to admin`,
+                user: updatedUser,
+                isNewUser: false,
+                isPromotion: true
+            });
+        } catch (updateError) {
+            console.error('❌ Error during user role update:', updateError);
+            return res.status(500).json({ 
+                error: `Failed to promote user: ${updateError.message}` 
+            });
         }
-        
-        console.log('✅ User promoted to admin:', updatedUser);
-        
-        res.status(200).json({ 
-            message: `User ${userEmail} has been promoted to admin`,
-            user: updatedUser,
-            isNewUser: false
-        });
         
     } catch (error) {
         console.error("❌ Error promoting user to admin:", error);
@@ -684,6 +726,93 @@ export async function updateUserEmailsFromClerk(req, res) {
         
     } catch (error) {
         console.error("❌ Error updating user emails:", error);
+        res.status(500).json({ error: "Internal server error: " + error.message });
+    }
+}
+
+export async function fixDuplicateUsers(req, res) {
+    try {
+        const { adminUserId } = req.body;
+        
+        console.log('=== FIX DUPLICATE USERS ===');
+        console.log('Admin user:', adminUserId);
+        
+        if (!adminUserId) {
+            return res.status(400).json({ error: "Missing admin user ID" });
+        }
+        
+        // Verify admin status
+        const adminCheck = await sql`SELECT role FROM users WHERE id = ${adminUserId}`;
+        const adminResult = adminCheck.rows || adminCheck;
+        if (!adminResult || adminResult.length === 0 || adminResult[0]?.role !== 'admin') {
+            return res.status(403).json({ error: "Access denied. Admin privileges required." });
+        }
+        
+        // Find duplicate users by email (where one is email-based ID and another is Clerk ID)
+        const duplicates = await sql`
+            SELECT email, array_agg(id) as user_ids, array_agg(role) as roles
+            FROM users 
+            WHERE email NOT LIKE '%@clerk.user'
+            GROUP BY email 
+            HAVING COUNT(*) > 1
+        `;
+        
+        const duplicateResults = duplicates.rows || duplicates;
+        let fixedCount = 0;
+        const errors = [];
+        
+        for (const duplicate of duplicateResults) {
+            const { email, user_ids, roles } = duplicate;
+            
+            try {
+                // Find which ID is the Clerk ID (starts with 'user_') and which is email-based
+                const clerkId = user_ids.find(id => id.startsWith('user_'));
+                const emailBasedId = user_ids.find(id => id.startsWith('email_'));
+                
+                if (clerkId && emailBasedId) {
+                    console.log(`🔧 Fixing duplicate for ${email}: merging ${emailBasedId} into ${clerkId}`);
+                    
+                    // Get the role from the email-based user (likely admin)
+                    const emailUserIndex = user_ids.indexOf(emailBasedId);
+                    const emailUserRole = roles[emailUserIndex];
+                    
+                    // Update the Clerk user with the role from the email-based user
+                    await sql`
+                        UPDATE users 
+                        SET role = ${emailUserRole}
+                        WHERE id = ${clerkId}
+                    `;
+                    
+                    // Transfer any inspections from email-based ID to Clerk ID
+                    await sql`
+                        UPDATE vehicle_inspections 
+                        SET user_id = ${clerkId}
+                        WHERE user_id = ${emailBasedId}
+                    `;
+                    
+                    // Delete the email-based user record
+                    await sql`
+                        DELETE FROM users 
+                        WHERE id = ${emailBasedId}
+                    `;
+                    
+                    fixedCount++;
+                    console.log(`✅ Fixed duplicate for ${email}`);
+                }
+            } catch (error) {
+                errors.push(`Failed to fix duplicate for ${email}: ${error.message}`);
+                console.error(`❌ Error fixing duplicate for ${email}:`, error);
+            }
+        }
+        
+        res.status(200).json({ 
+            message: `Successfully fixed ${fixedCount} duplicate users`,
+            fixedCount,
+            errors: errors.length > 0 ? errors : null
+        });
+        
+    } catch (error) {
+        console.error("❌ Error fixing duplicate users:", error);
         res.status(500).json({ error: "Internal server error: " + error.message });
     }
 }

@@ -1,17 +1,22 @@
-export const formatDate = (dateString) => {
-  if (!dateString) return "No date";
+export const formatDate = (dateString, language = 'en') => {
+  if (!dateString) return language === 'es' ? "Sin fecha" : "No date";
   
   try {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
+    const locale = language === 'es' ? 'es-ES' : 'en-US';
+    
+    // Format options for Spanish vs English
+    const options = {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
-    });
+    };
+    
+    return date.toLocaleDateString(locale, options);
   } catch (error) {
-    return "Invalid date";
+    return language === 'es' ? "Fecha inválida" : "Invalid date";
   }
 };
 

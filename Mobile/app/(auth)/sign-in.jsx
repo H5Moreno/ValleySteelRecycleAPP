@@ -6,10 +6,13 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 import { styles } from "../../assets/styles/auth.styles";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "../../constants/colors";
+import LanguageToggle from "../../components/LanguageToggle";
+import { useTranslation } from "../../hooks/useTranslation";
 
 export default function Page() {
   const { signIn, setActive, isLoaded } = useSignIn();
   const router = useRouter();
+  const { t } = useTranslation();
 
   const [emailAddress, setEmailAddress] = useState("");
   const [password, setPassword] = useState("");
@@ -38,9 +41,9 @@ export default function Page() {
       }
     } catch (err) {
       if (err.errors?.[0]?.code === "form_password_incorrect") {
-        setError("Password is incorrect. Please try again.");
+        setError(t('passwordIncorrect') || "Password is incorrect. Please try again.");
       } else {
-        setError("An error occurred. Please try again.");
+        setError(t('errorOccurred') || "An error occurred. Please try again.");
       }
     }
   };
@@ -54,11 +57,16 @@ export default function Page() {
       extraScrollHeight={30}
     >
       <View style={styles.container}>
+        {/* Language Toggle at the top */}
+        <View style={styles.languageToggleContainer}>
+          <LanguageToggle size="medium" showLabel={true} />
+        </View>
+        
         <Image 
           source={require("../../assets/images/VSR.png")} 
           style={[styles.illustration, { alignSelf: "center" }]} 
         />
-        <Text style={styles.title}>Welcome Back</Text>
+        <Text style={styles.title}>{t('signIn')}</Text>
 
         {error ? (
           <View style={styles.errorBox}>
@@ -74,30 +82,30 @@ export default function Page() {
           style={[styles.input, error && styles.errorInput]}
           autoCapitalize="none"
           value={emailAddress}
-          placeholder="Enter email"
-          placeholderTextColor="#9A8478"
+          placeholder={t('enterEmail')}
+          placeholderTextColor={COLORS.textLight}
           onChangeText={(emailAddress) => setEmailAddress(emailAddress)}
         />
 
         <TextInput
           style={[styles.input, error && styles.errorInput]}
           value={password}
-          placeholder="Enter password"
-          placeholderTextColor="#9A8478"
+          placeholder={t('enterPassword')}
+          placeholderTextColor={COLORS.textLight}
           secureTextEntry={true}
           onChangeText={(password) => setPassword(password)}
         />
 
         <TouchableOpacity style={styles.button} onPress={onSignInPress}>
-          <Text style={styles.buttonText}>Sign In</Text>
+          <Text style={styles.buttonText}>{t('signIn')}</Text>
         </TouchableOpacity>
 
         <View style={styles.footerContainer}>
-          <Text style={styles.footerText}>Don&apos;t have an account?</Text>
+          <Text style={styles.footerText}>{t('dontHaveAccount')}</Text>
 
           <Link href="/sign-up" asChild>
             <TouchableOpacity>
-              <Text style={styles.linkText}>Sign up</Text>
+              <Text style={styles.linkText}>{t('signUp')}</Text>
             </TouchableOpacity>
           </Link>
         </View>

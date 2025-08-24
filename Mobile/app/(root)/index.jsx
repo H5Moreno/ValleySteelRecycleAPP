@@ -13,12 +13,14 @@ import { InspectionItem } from "../../components/InspectionItem";
 import NoInspectionsFound from "../../components/NoInspectionsFound"; 
 import { useAdmin } from "../../hooks/useAdmin";
 import { API_URL } from "../../constants/api";
+import { useTranslation } from "../../hooks/useTranslation";
 
 export default function Page() {
   const { user } = useUser();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
-  const { isAdmin, needsBootstrap } = useAdmin(user?.id, user?.emailAddresses?.[0]?.emailAddress); // ADD needsBootstrap here
+  const { isAdmin, needsBootstrap } = useAdmin(user?.id, user?.emailAddresses?.[0]?.emailAddress);
+  const { t } = useTranslation();
 
   const { inspections, isLoading, loadData, deleteInspection } = useInspections(
     user?.id, 
@@ -45,13 +47,14 @@ export default function Page() {
   );
 
   const handleDelete = (id) => {
-    Alert.alert("Delete Inspection", "Are you sure you want to delete this inspection?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => deleteInspection(id) },
+    Alert.alert(t('deleteInspection'), t('deleteConfirmation'), [
+      { text: t('cancel'), style: "cancel" },
+      { text: t('delete'), style: "destructive", onPress: () => deleteInspection(id) },
     ]);
   };
 
-  if (isLoading && inspections.length === 0) return <PageLoader />;
+  // Show PageLoader only for initial loading, not when refreshing
+  if (isLoading && inspections.length === 0 && !refreshing) return <PageLoader />;
 
   return (
     <View style={styles.container}>
@@ -66,7 +69,7 @@ export default function Page() {
               resizeMode="contain"
             />
             <View style={styles.welcomeContainer}>
-              <Text style={styles.welcomeText}>Welcome,</Text>
+              <Text style={styles.welcomeText}>{t('welcome')},</Text>
               <Text style={styles.usernameText}>
                 {user?.emailAddresses[0]?.emailAddress.split("@")[0]}
               </Text>
@@ -89,7 +92,7 @@ export default function Page() {
                   color={needsBootstrap ? COLORS.expense : COLORS.primary} 
                 />
                 {needsBootstrap && (
-                  <Text style={styles.bootstrapText}>Setup</Text>
+                  <Text style={styles.bootstrapText}>{t('setup')}</Text>
                 )}
               </TouchableOpacity>
             )}
@@ -100,7 +103,7 @@ export default function Page() {
         <BalanceCard onAddPress={() => router.push("/create")} />
 
         <View style={styles.transactionsHeaderContainer}>
-          <Text style={styles.sectionTitle}>Recent Inspections</Text>
+          <Text style={styles.sectionTitle}>{t('recentInspections')}</Text>
         </View>
       </View>
 

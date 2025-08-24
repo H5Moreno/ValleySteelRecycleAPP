@@ -4,9 +4,11 @@ import { styles } from "../assets/styles/home.styles";
 import { COLORS } from "../constants/colors";
 import { formatDate } from "../lib/utils";
 import { useRouter } from "expo-router";
+import { useTranslation } from "../hooks/useTranslation";
 
 export const InspectionItem = ({ item }) => {
   const router = useRouter();
+  const { t, language } = useTranslation();
 
   const handleViewPress = () => {
     console.log('Navigating to view inspection with ID:', item.id);
@@ -20,9 +22,9 @@ export const InspectionItem = ({ item }) => {
   };
 
   const getStatusText = () => {
-    if (!item.condition_satisfactory) return "Unsatisfactory";
-    if (item.defects_need_correction) return "Needs Correction";
-    return "Satisfactory";
+    if (!item.condition_satisfactory) return t('unsatisfactory');
+    if (item.defects_need_correction) return t('needsAttention');
+    return t('satisfactory');
   };
 
   return (
@@ -32,14 +34,14 @@ export const InspectionItem = ({ item }) => {
           <Ionicons name="car-outline" size={22} color={getStatusColor()} />
         </View>
         <View style={styles.transactionLeft}>
-          <Text style={styles.transactionTitle}>{item.vehicle || "Vehicle Inspection"}</Text>
-          <Text style={styles.transactionCategory}>{item.location || "No location"}</Text>
+          <Text style={styles.transactionTitle}>{item.vehicle || t('vehicleInspection')}</Text>
+          <Text style={styles.transactionCategory}>{item.location || t('notSpecified')}</Text>
         </View>
         <View style={styles.transactionRight}>
           <Text style={[styles.transactionAmount, { color: getStatusColor() }]}>
             {getStatusText()}
           </Text>
-          <Text style={styles.transactionDate}>{formatDate(item.created_at)}</Text>
+          <Text style={styles.transactionDate}>{formatDate(item.created_at, language)}</Text>
         </View>
       </TouchableOpacity>
       <TouchableOpacity style={styles.viewButton} onPress={handleViewPress}>
