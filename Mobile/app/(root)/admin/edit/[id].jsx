@@ -10,12 +10,15 @@ import { API_URL } from "../../../../constants/api";
 import { DEFECTIVE_ITEMS, TRUCK_TRAILER_ITEMS } from "../../../../constants/inspectionItems";
 import { useAdmin } from "../../../../hooks/useAdmin";
 import PageLoader from "../../../../components/PageLoader";
+import InspectionPhotos from "../../../../components/InspectionPhotos";
+import { useTranslation } from "../../../../hooks/useTranslation";
 
 const EditInspectionScreen = () => {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const { user } = useUser();
   const { allInspections, updateInspection, isLoading: adminLoading, isAdmin } = useAdmin(user.id, user?.emailAddresses?.[0]?.emailAddress);
+  const { t } = useTranslation();
   
   const [isLoading, setIsLoading] = useState(false);
   const [inspection, setInspection] = useState(null);
@@ -49,6 +52,9 @@ const EditInspectionScreen = () => {
   // Defective items state
   const [selectedDefectiveItems, setSelectedDefectiveItems] = useState({});
   const [selectedTruckTrailerItems, setSelectedTruckTrailerItems] = useState({});
+
+  // Photos state
+  const [photos, setPhotos] = useState([]);
 
   // 🔧 ADMIN-ONLY FUNCTION TO HANDLE CONDITION STATUS CHANGES
   const handleConditionStatusChange = (newStatus) => {
@@ -158,6 +164,9 @@ const EditInspectionScreen = () => {
           setSelectedDefectiveItems({});
           setSelectedTruckTrailerItems({});
         }
+
+        // Load photos
+        setPhotos(foundInspection.photos || []);
       }
     }
   }, [id, allInspections, adminLoading]);
@@ -293,6 +302,7 @@ const EditInspectionScreen = () => {
         defects_corrected: defectsCorrected,
         defects_need_correction: defectsNeedCorrection,
         mechanic_signature: mechanicSignature.trim(),
+        photos: photos, // Include photos in update
         adminUserId: user.id
       };
 
@@ -653,6 +663,18 @@ const EditInspectionScreen = () => {
               onFocus={handleMechanicSignatureFocus}
               returnKeyType="done"
               onSubmitEditing={Keyboard.dismiss}
+            />
+          </View>
+
+          {/* Photos Section */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>
+              {t('photos')}
+            </Text>
+            <InspectionPhotos
+              photos={photos}
+              onPhotosChange={setPhotos}
+              editable={true}
             />
           </View>
 

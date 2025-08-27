@@ -1,9 +1,11 @@
 import express from "express";
 import dotenv, { parse } from "dotenv";
+import cors from "cors";
 import { initDB } from "./config/db.js"; 
 import rateLimiter from "./middleware/rateLimiter.js";
 import inspectionsRoute from "./routes/inspectionsRoute.js";
 import adminRoute from "./routes/adminRoute.js";
+import imageRoutes from "./routes/imageRoutes.js";
 import job from "./config/cron.js";
 
 dotenv.config();
@@ -13,6 +15,7 @@ const app = express();
 if(process.env.NODE_ENV === "production") job.start();
 
 // middleware
+app.use(cors());
 app.use(rateLimiter);
 app.use(express.json());
 
@@ -27,7 +30,8 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/inspections", inspectionsRoute);
-app.use("/api/admin", adminRoute); // Add this
+app.use("/api/admin", adminRoute);
+app.use("/api", imageRoutes); // Add image routes
 
 initDB().then (() => {
     app.listen(PORT, () => {

@@ -89,7 +89,8 @@ export async function createInspection(req, res){
             driver_signature,
             defects_corrected,
             defects_need_correction,
-            mechanic_signature
+            mechanic_signature,
+            photos // Add photos array
         } = req.body;
 
         if(!user_id || !vehicle) {
@@ -132,6 +133,7 @@ export async function createInspection(req, res){
             }
         }
 
+        // Create the inspection first
         const inspection = await sql`
             INSERT INTO vehicle_inspections (
                 user_id, location, date, time, vehicle, speedometer_reading,
@@ -149,7 +151,50 @@ export async function createInspection(req, res){
             RETURNING *
         `
         
-        res.status(201).json(inspection[0]);
+        const createdInspection = inspection.rows?.[0] || inspection[0];
+        
+        // Handle photos if provided
+        let photoResults = [];
+        console.log(`📸 Photos received in createInspection:`, photos);
+        console.log(`📸 Photos type:`, typeof photos);
+        console.log(`📸 Photos length:`, photos ? photos.length : 0);
+        
+        if (photos && photos.length > 0) {
+            console.log(`📸 Processing ${photos.length} photos for inspection ${createdInspection.id}`);
+            
+            // Store Cloudinary photo metadata in database
+            for (const photo of photos) {
+                try {
+                    console.log(`🔒 Storing PRIVATE photo metadata: ${photo.name}`);
+                    const photoRecord = await sql`
+                        INSERT INTO inspection_images (
+                            inspection_id, file_name, cloudinary_url, cloudinary_public_id,
+                            image_type, created_at, uploaded_by, width, height, file_size,
+                            is_private, resource_type, format, vehicle_id, vehicle_folder, context_metadata
+                        )
+                        VALUES (
+                            ${createdInspection.id}, ${photo.name || `photo_${Date.now()}`}, ${photo.cloudinary_url}, ${photo.cloudinary_public_id},
+                            'defect_photo', ${new Date()}, ${user_id}, ${photo.width || null}, ${photo.height || null}, ${photo.fileSize || null},
+                            ${photo.isPrivate || true}, ${photo.resourceType || 'image'}, ${photo.format || 'jpg'}, 
+                            ${photo.vehicle || vehicle}, ${photo.vehicleFolder || null}, ${JSON.stringify(photo.context || {})}
+                        )
+                        RETURNING *
+                    `;
+                    
+                    photoResults.push(photoRecord.rows?.[0] || photoRecord[0]);
+                    console.log(`✅ PRIVATE photo metadata stored: ${photo.name}`);
+                } catch (photoError) {
+                    console.error(`❌ Failed to store PRIVATE photo metadata for ${photo.name}:`, photoError);
+                }
+            }
+        }
+        
+        // Return the inspection with photo count
+        res.status(201).json({ 
+            message: "Inspection created successfully",
+            inspection: createdInspection,
+            photos_uploaded: photoResults.length
+        });
 
     } catch (error) {
         console.error("Error creating inspection:", error);
@@ -278,8 +323,37 @@ export async function getSingleInspection(req, res) {
                 inspection.truck_trailer_items = {};
             }
         }
+
+        // Fetch associated photos
+        try {
+            console.log(`📸 Fetching photos for inspection ${id}`);
+            const photosResult = await sql`
+                SELECT * FROM inspection_images 
+                WHERE inspection_id = ${id}
+                ORDER BY created_at DESC
+            `;
+            
+            const photos = photosResult.rows || photosResult;
+            console.log(`📸 Raw photos from database:`, photos);
+            console.log(`📸 Photos count:`, photos ? photos.length : 0);
+            
+            // Transform photos to include the expected URL field
+            inspection.photos = (photos || []).map(photo => ({
+                ...photo,
+                // Use stored image_uri for local photos
+                uri: photo.image_uri,
+                google_drive_url: photo.drive_file_id && !photo.drive_file_id.startsWith('local_') ? 
+                    `https://drive.google.com/file/d/${photo.drive_file_id}/view` : null,
+                name: photo.file_name
+            }));
+            console.log(`📸 Found ${inspection.photos.length} photos for inspection ${id}`);
+            console.log('📸 Transformed photo details:', inspection.photos);
+        } catch (photoError) {
+            console.error('Error fetching photos:', photoError);
+            inspection.photos = [];
+        }
         
-        console.log('Returning parsed inspection:', inspection);
+        console.log('Returning parsed inspection with photos:', inspection);
         res.status(200).json(inspection);
         
     } catch (error) {

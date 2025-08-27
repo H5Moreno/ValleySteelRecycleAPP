@@ -2,6 +2,7 @@
 const coffeeTheme = {
   primary: "#8B593E",
   secondary: "#D2691E",
+  background: "#FBF7F3",
   text: "#4A3428",
   border: "#E5D3B7",
   white: "#FFFFFF",
@@ -10,6 +11,7 @@ const coffeeTheme = {
   income: "#2ECC71",
   card: "#FFFFFF",
   shadow: "#000000",
+  danger: "#E74C3C",
 };
 
 const forestTheme = {
@@ -24,11 +26,13 @@ const forestTheme = {
   income: "#388E3C",
   card: "#FFFFFF",
   shadow: "#000000",
+  danger: "#C62828",
 };
 
 const purpleTheme = {
   primary: "#6A1B9A",
   secondary: "#FF6F00",
+  background: "#F3E5F5",
   text: "#4A148C",
   border: "#D1C4E9",
   white: "#FFFFFF",
@@ -37,6 +41,7 @@ const purpleTheme = {
   income: "#388E3C",
   card: "#FFFFFF",
   shadow: "#000000",
+  danger: "#D32F2F",
 };
 
 const oceanTheme = {
@@ -51,6 +56,7 @@ const oceanTheme = {
   income: "#26A69A",
   card: "#FFFFFF",
   shadow: "#000000",
+  danger: "#EF5350",
 };
 
 export const THEMES = {
