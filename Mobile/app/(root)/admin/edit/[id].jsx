@@ -165,8 +165,21 @@ const EditInspectionScreen = () => {
           setSelectedTruckTrailerItems({});
         }
 
-        // Load photos
-        setPhotos(foundInspection.photos || []);
+        // Load photos and ensure correct structure for frontend/backend compatibility
+        const loadedPhotos = (foundInspection.photos || []).map(photo => ({
+          // Keep original fields from database
+          ...photo,
+          // Ensure required fields for backend updates are present
+          cloudinary_url: photo.cloudinary_url || photo.uri,
+          cloudinary_public_id: photo.cloudinary_public_id,
+          name: photo.file_name || photo.name,
+          // Ensure frontend display fields are present
+          uri: photo.cloudinary_url || photo.uri,
+          file_name: photo.file_name || photo.name,
+        }));
+        
+        console.log('📸 Loaded photos for editing:', loadedPhotos);
+        setPhotos(loadedPhotos);
       }
     }
   }, [id, allInspections, adminLoading]);
@@ -287,6 +300,8 @@ const EditInspectionScreen = () => {
       console.log('Condition Status Changed:', conditionStatusChanged);
       console.log('Original Condition:', originalConditionSatisfactory);
       console.log('Current Condition:', conditionSatisfactory);
+      console.log('📸 Photos being sent:', photos);
+      console.log('📸 Photos count:', photos ? photos.length : 0);
 
       const updateData = {
         location: location.trim(),
