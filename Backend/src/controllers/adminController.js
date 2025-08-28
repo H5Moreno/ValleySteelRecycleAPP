@@ -599,14 +599,34 @@ export async function updateInspection(req, res) {
         // Handle photo updates if provided
         if (updateData.photos !== undefined && Array.isArray(updateData.photos)) {
             console.log('📸 Updating photos for inspection:', id);
+            console.log('📸 Photos received:', updateData.photos);
             
-            // Delete existing photos for this inspection
-            await sql`DELETE FROM inspection_images WHERE inspection_id = ${id}`;
+            // Don't delete existing photos, just ensure new ones are stored
+            // This prevents photo loss when editing other fields
             
-            // Insert new photos
+            // Process each photo to ensure proper storage
             for (const photo of updateData.photos) {
-                if (photo.cloudinary_url && photo.cloudinary_public_id) {
+                console.log('📸 Processing photo:', photo);
+                
+                // Check if this photo already exists in database (has id or cloudinary_public_id)
+                let existingPhoto = null;
+                if (photo.id || photo.cloudinary_public_id) {
                     try {
+                        const existingResult = await sql`
+                            SELECT id FROM inspection_images 
+                            WHERE inspection_id = ${id} 
+                            AND (id = ${photo.id || null} OR cloudinary_public_id = ${photo.cloudinary_public_id || null})
+                        `;
+                        existingPhoto = (existingResult.rows || existingResult)[0];
+                    } catch (checkError) {
+                        console.log('📸 Error checking existing photo:', checkError);
+                    }
+                }
+                
+                // Only insert if it's a new photo (has cloudinary data but not in database)
+                if (!existingPhoto && (photo.cloudinary_url || photo.uri) && (photo.cloudinary_public_id || photo.name)) {
+                    try {
+                        console.log('📸 Inserting new photo metadata:', photo.name || photo.file_name);
                         await sql`
                             INSERT INTO inspection_images (
                                 inspection_id, 
@@ -617,28 +637,44 @@ export async function updateInspection(req, res) {
                                 height, 
                                 file_size,
                                 image_type,
-                                created_at
+                                created_at,
+                                uploaded_by,
+                                is_private,
+                                resource_type,
+                                format,
+                                vehicle_id,
+                                vehicle_folder,
+                                context_metadata
                             ) VALUES (
                                 ${id}, 
-                                ${photo.cloudinary_url}, 
-                                ${photo.cloudinary_public_id},
-                                ${photo.name || `photo_${Date.now()}`},
+                                ${photo.cloudinary_url || photo.uri}, 
+                                ${photo.cloudinary_public_id || null},
+                                ${photo.name || photo.file_name || `photo_${Date.now()}`},
                                 ${photo.width || null}, 
                                 ${photo.height || null}, 
-                                ${photo.fileSize || null},
+                                ${photo.fileSize || photo.file_size || null},
                                 'defect_photo',
-                                ${new Date()}
+                                ${photo.created_at || photo.uploaded_at || new Date()},
+                                ${photo.uploaded_by || updateData.adminUserId || adminUserId},
+                                ${photo.is_private !== undefined ? photo.is_private : true},
+                                ${photo.resource_type || photo.resourceType || 'image'},
+                                ${photo.format || 'jpg'},
+                                ${photo.vehicle_id || photo.vehicle || current.vehicle},
+                                ${photo.vehicle_folder || photo.vehicleFolder || null},
+                                ${JSON.stringify(photo.context_metadata || photo.context || {})}
                             )
                         `;
-                        console.log('📸 Stored Cloudinary photo metadata:', photo.cloudinary_url);
+                        console.log('✅ New photo metadata stored:', photo.name || photo.file_name);
                     } catch (photoError) {
-                        console.error('❌ Error storing Cloudinary photo metadata:', photoError);
-                        // Don't fail the entire update for photo errors
+                        console.error('❌ Error storing photo metadata:', photoError);
+                        // Don't fail the entire update for photo errors, just log
                     }
+                } else {
+                    console.log('📸 Photo already exists or missing required data, skipping:', photo.name || photo.file_name);
                 }
             }
             
-            console.log(`📸 Updated ${updateData.photos.length} photos for inspection ${id}`);
+            console.log(`📸 Photo processing complete for inspection ${id}`);
         }
         
         console.log('Update result:', updateResult);
