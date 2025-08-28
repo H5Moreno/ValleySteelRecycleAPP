@@ -182,10 +182,6 @@ const InspectionPhotos = ({ photos = [], onPhotosChange, editable = false, vehic
             console.log('✅ Using cloudinary_url:', photo.cloudinary_url);
             return photo.cloudinary_url;
         }
-        if (photo?.google_drive_url) {
-            console.log('✅ Using google_drive_url:', photo.google_drive_url);
-            return photo.google_drive_url;
-        }
         if (photo?.uri) {
             console.log('✅ Using uri:', photo.uri);
             return photo.uri;

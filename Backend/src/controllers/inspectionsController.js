@@ -340,10 +340,8 @@ export async function getSingleInspection(req, res) {
             // Transform photos to include the expected URL field
             inspection.photos = (photos || []).map(photo => ({
                 ...photo,
-                // Use stored image_uri for local photos
-                uri: photo.image_uri,
-                google_drive_url: photo.drive_file_id && !photo.drive_file_id.startsWith('local_') ? 
-                    `https://drive.google.com/file/d/${photo.drive_file_id}/view` : null,
+                // Use stored image_uri for local photos or cloudinary_url for cloud photos
+                uri: photo.cloudinary_url || photo.image_uri,
                 name: photo.file_name
             }));
             console.log(`📸 Found ${inspection.photos.length} photos for inspection ${id}`);

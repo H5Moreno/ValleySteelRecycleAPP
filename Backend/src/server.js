@@ -5,7 +5,6 @@ import { initDB } from "./config/db.js";
 import rateLimiter from "./middleware/rateLimiter.js";
 import inspectionsRoute from "./routes/inspectionsRoute.js";
 import adminRoute from "./routes/adminRoute.js";
-import imageRoutes from "./routes/imageRoutes.js";
 import job from "./config/cron.js";
 
 dotenv.config();
@@ -31,7 +30,6 @@ app.get("/", (req, res) => {
 
 app.use("/api/inspections", inspectionsRoute);
 app.use("/api/admin", adminRoute);
-app.use("/api", imageRoutes); // Add image routes
 
 initDB().then (() => {
     app.listen(PORT, () => {

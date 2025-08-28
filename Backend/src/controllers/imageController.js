@@ -1,5 +1,4 @@
 import { sql } from '../config/db.js';
-import googleDriveService from '../services/googleDriveService.js';
 import { generateSecurePhotoUrl, validatePhotoAccess } from '../services/photoService.js';
 import { v4 as uuidv4 } from 'uuid';
 
