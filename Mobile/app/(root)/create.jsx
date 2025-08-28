@@ -10,6 +10,7 @@ import { API_URL } from "../../constants/api";
 import { DEFECTIVE_ITEMS, TRUCK_TRAILER_ITEMS } from "../../constants/inspectionItems";
 import { useAdmin } from "../../hooks/useAdmin";
 import { useTranslation } from "../../hooks/useTranslation";
+import InspectionPhotos from "../../components/InspectionPhotos";
 
 const CreateInspectionScreen = () => {
   const router = useRouter();
@@ -40,6 +41,9 @@ const CreateInspectionScreen = () => {
   const [defectsNeedCorrection, setDefectsNeedCorrection] = useState(false);
   const [driverSignature, setDriverSignature] = useState("");
   const [mechanicSignature, setMechanicSignature] = useState("");
+
+  // Photos state (using Cloudinary)
+  const [photos, setPhotos] = useState([]);
 
   // Defective items state
   const [selectedDefectiveItems, setSelectedDefectiveItems] = useState({});
@@ -169,8 +173,13 @@ const CreateInspectionScreen = () => {
         defects_corrected: defectsCorrected,
         defects_need_correction: defectsNeedCorrection,
         // Only include mechanic signature if user is admin/mechanic
-        mechanic_signature: isAdmin ? mechanicSignature.trim() : ""
+        mechanic_signature: isAdmin ? mechanicSignature.trim() : "",
+        // Include photos data (Cloudinary format)
+        photos: photos
       };
+
+      console.log('📸 Creating inspection with photos:', photos);
+      console.log('📸 Full inspection data:', inspectionData);
 
       const response = await fetch(`${API_URL}/inspections`, {
         method: "POST",
@@ -186,6 +195,8 @@ const CreateInspectionScreen = () => {
         throw new Error(errorData.error || "Failed to create inspection");
       }
 
+      const createdInspection = await response.json();
+      
       Alert.alert(t('success'), t('inspectionCreatedSuccess'));
       router.back();
     } catch (error) {
@@ -479,6 +490,21 @@ const CreateInspectionScreen = () => {
               />
             </View>
           )}
+
+          {/* PHOTOS SECTION */}
+          {/* Photos Section */}
+          <InspectionPhotos 
+            inspectionId={null} 
+            photos={photos}
+            onPhotosChange={setPhotos}
+            editable={true}
+            showTitle={true}
+            vehicleInfo={{
+              vehicle: vehicle.trim(),
+              date: formatDateForDisplay(date),
+              location: location.trim()
+            }}
+          />
 
           {/* Info message for regular users */}
           {!isAdmin && (

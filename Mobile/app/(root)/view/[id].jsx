@@ -8,6 +8,7 @@ import { COLORS } from "../../../constants/colors";
 import { DEFECTIVE_ITEMS, TRUCK_TRAILER_ITEMS } from "../../../constants/inspectionItems";
 import { API_URL } from "../../../constants/api";
 import PageLoader from "../../../components/PageLoader";
+import InspectionPhotos from "../../../components/InspectionPhotos";
 import { formatDate } from "../../../lib/utils";
 import { useTranslation } from "../../../hooks/useTranslation";
 
@@ -41,6 +42,8 @@ export default function ViewInspection() {
         }
         
         const data = await response.json();
+        console.log('📸 View inspection data:', data);
+        console.log('📸 Inspection photos:', data.photos);
         setInspection(data);
       } catch (error) {
         console.error("Error fetching inspection:", error);
@@ -327,6 +330,14 @@ export default function ViewInspection() {
               )}
             </View>
           </View>
+        </View>
+
+        {/* Photos Section */}
+        <View style={styles.card}>
+          <InspectionPhotos 
+            photos={inspection.photos || []}
+            editable={false}
+          />
         </View>
       </View>
     </ScrollView>

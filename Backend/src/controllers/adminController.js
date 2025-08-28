@@ -595,6 +595,52 @@ export async function updateInspection(req, res) {
         `;
         
         const updateResult = result.rows || result;
+        
+        // Handle photo updates if provided
+        if (updateData.photos !== undefined && Array.isArray(updateData.photos)) {
+            console.log('📸 Updating photos for inspection:', id);
+            
+            // Delete existing photos for this inspection
+            await sql`DELETE FROM inspection_images WHERE inspection_id = ${id}`;
+            
+            // Insert new photos
+            for (const photo of updateData.photos) {
+                if (photo.cloudinary_url && photo.cloudinary_public_id) {
+                    try {
+                        await sql`
+                            INSERT INTO inspection_images (
+                                inspection_id, 
+                                cloudinary_url, 
+                                cloudinary_public_id,
+                                file_name,
+                                width, 
+                                height, 
+                                file_size,
+                                image_type,
+                                created_at
+                            ) VALUES (
+                                ${id}, 
+                                ${photo.cloudinary_url}, 
+                                ${photo.cloudinary_public_id},
+                                ${photo.name || `photo_${Date.now()}`},
+                                ${photo.width || null}, 
+                                ${photo.height || null}, 
+                                ${photo.fileSize || null},
+                                'defect_photo',
+                                ${new Date()}
+                            )
+                        `;
+                        console.log('📸 Stored Cloudinary photo metadata:', photo.cloudinary_url);
+                    } catch (photoError) {
+                        console.error('❌ Error storing Cloudinary photo metadata:', photoError);
+                        // Don't fail the entire update for photo errors
+                    }
+                }
+            }
+            
+            console.log(`📸 Updated ${updateData.photos.length} photos for inspection ${id}`);
+        }
+        
         console.log('Update result:', updateResult);
         console.log('✅ Inspection updated successfully');
         
