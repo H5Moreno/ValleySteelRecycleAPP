@@ -1,2 +1,2 @@
-export const API_URL = "https://valleysteelapp-api.onrender.com/api";
+export const API_URL = "https://recycleappapi.onrender.com/api";
 //const API_URL = "http://localhost:5001/api";
